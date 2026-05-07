@@ -31,8 +31,10 @@ export default function Prazos() {
   const [editingPrazo, setEditingPrazo] = useState<Prazo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const [isCompleting, setIsCompleting] = useState<string | null>(null);
+
   const handleComplete = async (id: string) => {
-    if (!confirm('Deseja marcar este prazo como concluído?')) return;
+    setIsCompleting(id);
     
     try {
       const { error } = await supabase
@@ -41,9 +43,12 @@ export default function Prazos() {
         .eq('id', id);
       
       if (error) throw error;
-      refresh();
+      await refresh();
     } catch (err) {
+      console.error('Erro ao concluir prazo:', err);
       alert('Erro ao concluir prazo.');
+    } finally {
+      setIsCompleting(null);
     }
   };
 
@@ -211,9 +216,10 @@ export default function Prazos() {
                           </button>
                           <button 
                             onClick={() => handleComplete(prazo.id)}
-                            className="p-1.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition-colors" title="Concluir"
+                            disabled={isCompleting === prazo.id}
+                            className="p-1.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition-colors disabled:opacity-50" title="Concluir"
                           >
-                            <CheckCircle size={14} />
+                            {isCompleting === prazo.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                           </button>
                         </div>
                       </td>
@@ -273,9 +279,10 @@ export default function Prazos() {
                     </button>
                     <button 
                       onClick={() => handleComplete(prazo.id)}
-                      className="flex-1 bg-emerald-600/10 text-emerald-500 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600/20 transition-colors"
+                      disabled={isCompleting === prazo.id}
+                      className="flex-1 bg-emerald-600/10 text-emerald-500 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600/20 transition-colors disabled:opacity-50"
                     >
-                      Concluir
+                      {isCompleting === prazo.id ? <Loader2 size={10} className="animate-spin inline" /> : 'Concluir'}
                     </button>
                   </div>
                 </div>

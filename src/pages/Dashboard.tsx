@@ -64,13 +64,7 @@ export default function Dashboard() {
 
   const atrasados = pendentes.filter(p => isBefore(parseISO(p.data_vencimento), today));
   
-  const esteMes = new Date().getMonth();
-  const esteAno = new Date().getFullYear();
-  const concluidosMes = prazos.filter(p => {
-    if (p.status !== 'concluido' || !p.updated_at) return false;
-    const d = parseISO(p.updated_at);
-    return d.getMonth() === esteMes && d.getFullYear() === esteAno;
-  });
+  const totalConcluidos = prazos.filter(p => p.status === 'concluido');
 
   const notificados = prazos.filter(p => p.notificado);
   const naoNotificados = prazos.filter(p => !p.notificado);
@@ -80,7 +74,7 @@ export default function Dashboard() {
     { title: 'Vencem Hoje', value: vencemHoje.length, icon: <Clock size={20} />, description: 'Ação imediata', colorClass: "text-rose-500", iconColorClass: "bg-rose-500/10 text-rose-500" },
     { title: 'Vencem Amanhã', value: vencemAmanha.length, icon: <AlertCircle size={20} />, description: 'Preparar agora', colorClass: "text-indigo-500", iconColorClass: "bg-indigo-500/10 text-indigo-500" },
     { title: 'Prazos da Semana', value: prazosSemana.length, icon: <Calendar size={20} />, description: 'Próximos 7 dias', colorClass: "text-blue-500", iconColorClass: "bg-blue-500/10 text-blue-500" },
-    { title: 'Concluídos (Mês)', value: concluidosMes.length, icon: <CheckCircle2 size={20} />, description: 'Eficiência mensal', colorClass: "text-emerald-500", iconColorClass: "bg-emerald-500/10 text-emerald-500" },
+    { title: 'Total Concluídos', value: totalConcluidos.length, icon: <CheckCircle2 size={20} />, description: 'Total finalizado', colorClass: "text-emerald-500", iconColorClass: "bg-emerald-500/10 text-emerald-500" },
     { title: 'Atrasados', value: atrasados.length, icon: <AlertCircle size={20} />, description: 'Crítico', colorClass: "text-rose-600", iconColorClass: "bg-rose-600/10 text-rose-600" },
     { title: 'Notificados', value: notificados.length, icon: <Bell size={20} />, description: 'Total enviados', colorClass: "text-cyan-500", iconColorClass: "bg-cyan-500/10 text-cyan-500" },
     { title: 'Não Notificados', value: naoNotificados.length, icon: <BellOff size={20} />, description: 'Aguardando', colorClass: "text-slate-400", iconColorClass: "bg-slate-500/10 text-slate-400" },
@@ -113,7 +107,7 @@ export default function Dashboard() {
         <CardResumo title="Pendentes" value={pendentes.length} icon={<Clock size={16} />} description="+4 novos esta semana" colorClass="text-white" iconColorClass="bg-amber-500/10 text-amber-500" />
         <CardResumo title="Vencem Hoje" value={vencemHoje.length} icon={<AlertCircle size={16} />} description="Atenção necessária" colorClass="text-rose-400" iconColorClass="bg-rose-500/10 text-rose-500" />
         <CardResumo title="Atrasados" value={atrasados.length} icon={<AlertCircle size={16} />} description="Ver pendências" colorClass="text-red-500" iconColorClass="bg-red-500/10 text-red-500" />
-        <CardResumo title="Concluídos (Mês)" value={concluidosMes.length} icon={<CheckCircle2 size={16} />} description="Meta de produtividade: 85%" colorClass="text-emerald-400" iconColorClass="bg-emerald-500/10 text-emerald-500" />
+        <CardResumo title="Total Concluídos" value={totalConcluidos.length} icon={<CheckCircle2 size={16} />} description="Total finalizado" colorClass="text-emerald-400" iconColorClass="bg-emerald-500/10 text-emerald-500" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 min-h-0">
