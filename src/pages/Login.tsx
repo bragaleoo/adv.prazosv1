@@ -45,7 +45,7 @@ export default function Login() {
             <div className="inline-flex items-center justify-center p-2 bg-indigo-600 rounded text-white mb-6 shadow-lg shadow-indigo-600/20">
               <Gavel size={24} />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-widest uppercase mb-1">JusPrazo</h1>
+            <h1 className="text-2xl font-bold text-white tracking-widest uppercase mb-1">J.ADV Prazos</h1>
             <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
               Security Terminal v2.0
             </p>
