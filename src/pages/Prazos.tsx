@@ -172,7 +172,7 @@ export default function Prazos() {
                           <div className="h-5 w-5 rounded-full bg-[#1E293B] flex items-center justify-center text-[10px] font-bold text-slate-400">
                             {prazo.client?.nome?.charAt(0) || '?'}
                           </div>
-                          <p className="text-slate-300">{prazo.client?.nome || 'Não definido'}</p>
+                          <p className="text-slate-300">{(prazo.client?.nome || 'Não definido').replace(/^=/, '')}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">

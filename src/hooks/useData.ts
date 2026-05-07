@@ -20,28 +20,21 @@ export function usePrazos() {
       setLoading(true);
       setError(null);
       
-      // Fetch clients
-      const { data: clientsData, error: clientsError } = await supabase
-        .from('client')
-        .select('*');
-
-      if (clientsError) throw clientsError;
-      const allClients = clientsData || [];
-      setClients(allClients);
-
-      // Fetch prazos
+      // Fetch prazos with client join
       const { data: prazosData, error: prazosError } = await supabase
         .from('prazos')
-        .select('*');
+        .select('*, client(*)')
+        .eq('user_id', user.id);
 
       if (prazosError) throw prazosError;
       
       const joinedPrazos = (prazosData || []).map(prazo => ({
         ...prazo,
-        client: allClients.find(c => c.id === prazo.client_id)
+        client: Array.isArray(prazo.client) ? prazo.client[0] : prazo.client // handle potential array from join
       }));
 
       setPrazos(joinedPrazos as Prazo[]);
+      setClients(Array.from(new Set(joinedPrazos.map(p => p.client))).filter(Boolean) as Client[]);
       
     } catch (err: any) {
       console.error('Error fetching data:', err);
