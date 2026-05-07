@@ -23,8 +23,7 @@ export function usePrazos() {
       // Fetch prazos with client join
       const { data: prazosData, error: prazosError } = await supabase
         .from('prazos')
-        .select('*, client(*)')
-        .eq('user_id', user.id);
+        .select('*, client(*)');
 
       if (prazosError) throw prazosError;
       

@@ -113,15 +113,15 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 min-h-0">
         <div className="lg:col-span-2 flex flex-col min-h-0">
           {/* Próximos Vencimentos */}
-          <section className="bg-[#0F172A] border border-[#1E293B] rounded-xl flex flex-col overflow-hidden shadow-sm">
+          <section className="glass-panel rounded-xl flex flex-col overflow-hidden">
             <div className="p-4 border-b border-[#1E293B] flex items-center justify-between">
-              <h2 className="text-base font-bold uppercase tracking-widest text-slate-400">Próximos Vencimentos</h2>
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-300">Próximos Vencimentos</h2>
               <span className="text-xs font-mono text-slate-500">ORDEM: DATA CRESCENTE</span>
             </div>
             
             <div className="flex-1 overflow-x-auto custom-scrollbar">
               <table className="w-full text-left">
-                <thead className="text-xs text-slate-500 uppercase border-b border-[#1E293B] font-mono">
+                <thead className="text-[10px] text-slate-400 uppercase tracking-widest border-b border-white/5 font-mono bg-slate-900/40">
                   <tr>
                     <th className="px-6 py-3 font-semibold">Descrição do Prazo</th>
                     <th className="px-6 py-3 font-semibold">Cliente</th>
@@ -129,12 +129,12 @@ export default function Dashboard() {
                     <th className="px-6 py-3 font-semibold text-right">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#1E293B]">
+                <tbody className="divide-y divide-white/5">
                   {nextDeadlines.length > 0 ? (
                     nextDeadlines.map((prazo) => {
                       const date = parseISO(prazo.data_vencimento);
                       return (
-                        <tr key={prazo.id} className="hover:bg-slate-800/30 transition-colors group cursor-pointer text-base">
+                        <tr key={prazo.id} className="hover:bg-slate-800/50 transition-all group cursor-pointer text-sm">
                           <td className="px-6 py-4">
                             <div className="font-medium text-white">{prazo.descricao}</div>
                             <div className="text-xs text-slate-500 mt-0.5">{prazo.tipo || 'Geral'}</div>
@@ -174,8 +174,8 @@ export default function Dashboard() {
 
         <div className="space-y-6">
           {/* Distribuição */}
-          <div className="bg-[#0F172A] border border-[#1E293B] rounded-xl p-6">
-            <h2 className="text-base font-bold uppercase tracking-widest text-slate-400 mb-6">Distribuição de Status</h2>
+          <div className="glass-panel rounded-xl p-6">
+            <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-300 mb-6">Distribuição de Status</h2>
             <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -193,7 +193,7 @@ export default function Dashboard() {
                     ))}
                   </Pie>
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#020617', border: '1px solid #1E293B', borderRadius: '8px', fontSize: '12px', color: '#fff' }}
+                    contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px', color: '#fff', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>

@@ -22,7 +22,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-[#0F172A] border-r border-[#1E293B] flex flex-col z-50">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-900/60 backdrop-blur-xl border-r border-white/5 flex flex-col z-50">
       <div className="p-8 flex items-center gap-3">
         <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white">
           <Scale size={18} />

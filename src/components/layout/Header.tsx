@@ -12,7 +12,7 @@ export function Header({ title, subtitle, onOpenMobileMenu, onNewPrazo }: Header
   const { user } = useAuth();
 
   return (
-    <header className="h-16 flex items-center justify-between px-8 bg-[#020617] border-b border-[#1E293B] sticky top-0 z-40">
+    <header className="h-16 flex items-center justify-between px-8 bg-slate-900/40 backdrop-blur-xl border-b border-white/5 sticky top-0 z-40">
       <div className="flex items-center gap-4">
         <button 
           onClick={onOpenMobileMenu}

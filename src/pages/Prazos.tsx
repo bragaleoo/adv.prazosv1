@@ -91,7 +91,7 @@ export default function Prazos() {
 
       <div className="mb-8 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex-1 flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 focus-within:border-indigo-500/50 transition-colors shadow-lg">
+          <div className="flex-1 flex items-center gap-3 glass-panel rounded-2xl px-4 py-3 focus-within:border-indigo-500/50 transition-colors">
             <Search size={20} className="text-slate-500" />
             <input 
               type="text" 
@@ -103,7 +103,7 @@ export default function Prazos() {
           </div>
           
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 bg-slate-800 border border-slate-700 text-slate-300 px-4 py-3 rounded-2xl hover:bg-slate-700 transition-all font-semibold text-sm shadow-lg">
+            <button className="flex items-center gap-2 glass-panel text-slate-300 px-4 py-3 rounded-2xl hover:bg-white/5 transition-all font-semibold text-sm">
               <Filter size={18} />
               Filtros
             </button>
@@ -128,8 +128,8 @@ export default function Prazos() {
           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Sincronizando base de dados...</p>
         </div>
       ) : sortedPrazos.length > 0 ? (
-        <div className="bg-[#0F172A] border border-[#1E293B] rounded-xl overflow-hidden shadow-sm flex flex-col">
-          <div className="p-4 border-b border-[#1E293B] flex items-center justify-between bg-slate-900/50">
+        <div className="glass-panel rounded-xl overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-white/5 flex items-center justify-between bg-slate-900/30">
             <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">Listagem de Prazos</h2>
             <div className="flex items-center gap-4">
               <span className="text-[10px] font-mono text-slate-500 uppercase">Status: Filtrado</span>
@@ -141,7 +141,7 @@ export default function Prazos() {
           <div className="hidden md:block overflow-x-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="text-[10px] text-slate-500 uppercase border-b border-[#1E293B] font-mono bg-slate-900/30">
+                <tr className="text-[10px] text-slate-400 uppercase border-b border-white/5 font-mono bg-slate-900/40">
                   <th className="px-6 py-4 font-semibold tracking-wider">Descrição do Prazo</th>
                   <th className="px-6 py-4 font-semibold tracking-wider">Cliente</th>
                   <th className="px-6 py-4 font-semibold tracking-wider">Vencimento</th>
@@ -150,7 +150,7 @@ export default function Prazos() {
                   <th className="px-6 py-4 font-semibold tracking-wider text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#1E293B]">
+              <tbody className="divide-y divide-white/5">
                 {sortedPrazos.map((prazo) => {
                   const date = parseISO(prazo.data_vencimento);
                   const isAtrasado = isPast(date) && !isToday(date) && prazo.status === 'pendente';
@@ -158,7 +158,7 @@ export default function Prazos() {
 
                   return (
                     <tr key={prazo.id} className={cn(
-                      "hover:bg-slate-800/30 transition-colors group text-sm",
+                      "hover:bg-slate-800/50 transition-all group text-sm",
                       isAtrasado ? "bg-rose-500/[0.02]" : ""
                     )}>
                       <td className="px-6 py-4">
@@ -231,7 +231,7 @@ export default function Prazos() {
           </div>
 
           {/* Mobile Cards */}
-          <div className="md:hidden divide-y divide-[#1E293B]">
+          <div className="md:hidden divide-y divide-white/5">
             {sortedPrazos.map((prazo) => {
               const date = parseISO(prazo.data_vencimento);
               const isAtrasado = isPast(date) && !isToday(date) && prazo.status === 'pendente';
@@ -253,7 +253,7 @@ export default function Prazos() {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[#1E293B]">
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
                     <div>
                       <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Cliente</p>
                       <p className="text-xs font-semibold text-slate-400">{prazo.client?.nome || 'N/A'}</p>
@@ -291,7 +291,7 @@ export default function Prazos() {
           </div>
         </div>
       ) : (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-16 flex flex-col items-center text-center shadow-xl">
+        <div className="glass-panel rounded-3xl p-16 flex flex-col items-center text-center">
           <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center text-slate-600 mb-6 border border-slate-700/50">
             <Inbox size={40} />
           </div>

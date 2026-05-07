@@ -12,8 +12,9 @@ interface CardResumoProps {
 
 export function CardResumo({ title, value, icon, description, colorClass = "text-white", iconColorClass = "bg-blue-500/10 text-blue-500" }: CardResumoProps) {
   return (
-    <div className="bg-[#0F172A] border border-[#1E293B] p-4 rounded-xl transition-all hover:bg-slate-800/40">
-      <div className="flex items-center justify-between mb-2">
+    <div className="glass-panel p-5 rounded-xl transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/40 group relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="relative flex items-center justify-between mb-3">
         <span className="text-sm font-semibold text-slate-400 uppercase tracking-wider">{title}</span>
         <div className={cn("p-1.5 rounded-lg", iconColorClass)}>
           {icon}

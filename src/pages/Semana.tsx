@@ -48,7 +48,7 @@ export default function Semana() {
       subtitle={`Estratégia e pauta para a semana de ${format(currentWeekStart, "d 'de' MMMM", { locale: ptBR })}.`}
     >
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-1 bg-[#0F172A] border border-[#1E293B] rounded-lg p-0.5 shadow-sm">
+        <div className="flex items-center gap-1 glass-panel rounded-lg p-0.5">
           <button 
             onClick={prevWeek}
             className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded transition-all"
@@ -69,7 +69,7 @@ export default function Semana() {
           </button>
         </div>
 
-        <div className="bg-[#0F172A] border border-[#1E293B] px-6 py-2 rounded-lg shadow-sm flex items-center gap-3">
+        <div className="glass-panel px-6 py-2 rounded-lg flex items-center gap-3">
           <Calendar size={14} className="text-indigo-500" />
           <p className="text-[10px] font-mono font-bold text-slate-200 uppercase tracking-[0.2em]">
             {format(currentWeekStart, "dd/MM")} — {format(addDays(currentWeekStart, 6), "dd/MM")}
@@ -86,13 +86,13 @@ export default function Semana() {
             <div 
               key={idx} 
               className={cn(
-                "flex-1 min-w-[280px] flex flex-col rounded-xl overflow-hidden shadow-sm border h-[calc(100vh-320px)]",
-                isTodayDay ? "bg-[#0F172A] border-indigo-500/50" : "bg-[#0F172A] border-[#1E293B]"
+                "flex-1 min-w-[280px] flex flex-col rounded-xl overflow-hidden shadow-xl border h-[calc(100vh-320px)]",
+                isTodayDay ? "bg-slate-900/80 border-indigo-500/50 backdrop-blur-xl" : "glass-panel"
               )}
             >
               <div className={cn(
                 "p-4 border-b",
-                isTodayDay ? "bg-indigo-600/10 border-indigo-500/30" : "bg-slate-900/30 border-[#1E293B]"
+                isTodayDay ? "bg-indigo-600/10 border-indigo-500/30" : "bg-slate-900/30 border-white/5"
               )}>
                 <p className={cn(
                   "text-[9px] font-bold uppercase tracking-[0.2em] mb-1 font-mono",
@@ -116,12 +116,12 @@ export default function Semana() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#020617]/20 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-transparent custom-scrollbar">
                 {dayPrazos.length > 0 ? (
                   dayPrazos.map((prazo) => (
                     <div 
                       key={prazo.id} 
-                      className="bg-[#0F172A]/80 border border-[#1E293B] rounded-lg p-3 hover:bg-slate-800/40 transition-colors group relative"
+                      className="bg-slate-900/50 border border-white/5 rounded-lg p-3 hover:-translate-y-0.5 hover:shadow-lg transition-all group relative"
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <StatusBadge variant={prazo.prioridade?.toLowerCase() as any} className="text-[7px] px-1 py-0">

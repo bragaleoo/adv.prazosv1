@@ -59,7 +59,7 @@ export default function Clientes() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map(i => (
-            <div key={i} className="bg-[#0F172A] border border-[#1E293B] rounded-xl p-6 h-48 animate-pulse" />
+            <div key={i} className="glass-panel rounded-xl p-6 h-48 animate-pulse" />
           ))}
         </div>
       ) : (
@@ -69,8 +69,9 @@ export default function Clientes() {
             const pendentes = clientPrazos.filter(p => p.status === 'pendente').length;
             
             return (
-              <div key={client.id} className="bg-[#0F172A] border border-[#1E293B] rounded-xl p-5 hover:bg-slate-800/40 transition-all shadow-sm group relative">
-                <div className="flex items-start gap-4 mb-4">
+              <div key={client.id} className="glass-panel rounded-xl p-5 hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/40 transition-all shadow-sm group relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative flex items-start gap-4 mb-4">
                   <div className="h-10 w-10 rounded-lg bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-lg">
                     {client.nome.charAt(0)}
                   </div>
@@ -84,17 +85,17 @@ export default function Clientes() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 mb-4">
-                  <div className="bg-slate-900/50 rounded-lg p-2.5 border border-[#1E293B]">
+                  <div className="bg-slate-900/40 rounded-lg p-2.5 border border-white/5 backdrop-blur-sm">
                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Pendentes</p>
                     <p className="text-lg font-bold text-slate-200">{pendentes}</p>
                   </div>
-                  <div className="bg-slate-900/50 rounded-lg p-2.5 border border-[#1E293B]">
+                  <div className="bg-slate-900/40 rounded-lg p-2.5 border border-white/5 backdrop-blur-sm">
                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Status</p>
                     <StatusBadge variant="default" className="text-[8px] px-1 py-0">{client.status || 'ATIVO'}</StatusBadge>
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-3 border-t border-[#1E293B]">
+                <div className="space-y-2 pt-3 border-t border-white/5 relative">
                   <div className="flex items-center justify-between text-[10px] font-medium tracking-tight">
                     <span className="text-slate-500 flex items-center gap-1.5 uppercase">
                       <Clock size={12} /> Último Contato
