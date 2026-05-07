@@ -3,8 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
-  user: any | null;
-  session: any | null;
+  user: User | null;
+  session: Session | null;
   loading: boolean;
   signIn: (login: string, pass: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -13,49 +13,41 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
-  const [session, setSession] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for fake session in localStorage
-    const savedUser = localStorage.getItem('jusprazo_user');
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
-      setSession({ user: parsedUser });
-    }
-    setLoading(false);
+    // Busca a sessão atual
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Escuta mudanças no estado de auth
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (login: string, pass: string) => {
-    if (login === 'admelqui' && pass === '794613@') {
-      const fakeUser = {
-        id: 'fake-id-123',
-        email: 'admelqui@jusprazo.com',
-        user_metadata: { full_name: 'Dr. Melquisedeque' }
-      };
-      setUser(fakeUser);
-      setSession({ user: fakeUser });
-      localStorage.setItem('jusprazo_user', JSON.stringify(fakeUser));
-    } else if (login === 'alice.melquiadv' && pass === '136479@') {
-      const fakeUser = {
-        id: 'fake-id-456',
-        email: 'alice.melquiadv@jusprazo.com',
-        user_metadata: { full_name: 'Alice Melquisedeque' }
-      };
-      setUser(fakeUser);
-      setSession({ user: fakeUser });
-      localStorage.setItem('jusprazo_user', JSON.stringify(fakeUser));
-    } else {
-      throw new Error('Credenciais inválidas. Verifique o login e a senha.');
-    }
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
   };
 
   const signOut = async () => {
-    setUser(null);
-    setSession(null);
-    localStorage.removeItem('jusprazo_user');
+    await supabase.auth.signOut();
   };
 
   return (
