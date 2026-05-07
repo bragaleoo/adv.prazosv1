@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Prazo, Client } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export function usePrazos() {
   const [prazos, setPrazos] = useState<Prazo[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const fetchData = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -23,7 +30,6 @@ export function usePrazos() {
       setClients(allClients);
 
       // Fetch prazos
-      // Standard fetch first, then join in JS for maximum compatibility
       const { data: prazosData, error: prazosError } = await supabase
         .from('prazos')
         .select('*');
@@ -46,8 +52,10 @@ export function usePrazos() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   return { prazos, clients, loading, error, refresh: fetchData };
 }

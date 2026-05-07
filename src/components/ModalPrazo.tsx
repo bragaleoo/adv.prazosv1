@@ -81,10 +81,14 @@ export function ModalPrazo({ isOpen, onClose, onSuccess, prazo, clients }: Modal
         if (updateError) throw updateError;
       } else {
         // Create
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Usuário não autenticado.');
+
         const { error: insertError } = await supabase
           .from('prazos')
           .insert([{
             ...formData,
+            user_id: user.id,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }]);
