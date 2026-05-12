@@ -82,10 +82,7 @@ export function MainLayout({ children, title, subtitle, refreshData }: MainLayou
             >
               <div className="p-6 flex items-center justify-between border-b border-[#1E293B]">
                 <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-indigo-600 rounded text-white shadow-lg shadow-indigo-600/30">
-                    <Gavel size={20} />
-                  </div>
-                  <h1 className="text-white font-bold text-lg tracking-tighter uppercase">JusPrazo</h1>
+                  <img src="/logo.png" alt="Lex.AI Logo" className="h-10 w-auto" />
                 </div>
                 <button 
                   onClick={() => setIsMobileMenuOpen(false)}

@@ -71,7 +71,7 @@ export function ModalPrazo({ isOpen, onClose, onSuccess, prazo, clients }: Modal
       if (prazo) {
         // Update
         const { error: updateError } = await supabase
-          .from('prazos')
+          .from('prazos_lex.ai' as any)
           .update({
             ...formData,
             updated_at: new Date().toISOString()
@@ -85,7 +85,7 @@ export function ModalPrazo({ isOpen, onClose, onSuccess, prazo, clients }: Modal
         if (!user) throw new Error('Usuário não autenticado.');
 
         const { error: insertError } = await supabase
-          .from('prazos')
+          .from('prazos_lex.ai' as any)
           .insert([{
             ...formData,
             user_id: user.id,

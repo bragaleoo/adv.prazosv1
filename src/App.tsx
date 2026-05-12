@@ -14,7 +14,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
       <div className="h-screen w-full bg-[#020617] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-bold animate-pulse uppercase tracking-[0.2em] text-[10px]">AUTH_SYNC_PROBE</p>
+          <p className="text-slate-500 font-bold animate-pulse uppercase tracking-[0.2em] text-[10px]">LEX.AI SECURE SESSION</p>
         </div>
       </div>
     );

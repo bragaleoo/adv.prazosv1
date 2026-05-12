@@ -23,11 +23,8 @@ export function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-900/60 backdrop-blur-xl border-r border-white/5 flex flex-col z-50">
-      <div className="p-8 flex items-center gap-3">
-        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white">
-          <Scale size={18} />
-        </div>
-        <span className="text-xl font-bold tracking-tight text-white">J.ADV</span>
+      <div className="py-10 px-6 flex items-center justify-center">
+        <img src="/logo.png" alt="Lex.AI Logo" className="w-full h-auto max-w-[190px] drop-shadow-[0_0_20px_rgba(99,102,241,0.3)]" />
       </div>
 
       <nav className="flex-1 px-4 space-y-1">

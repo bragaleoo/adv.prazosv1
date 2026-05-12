@@ -38,7 +38,7 @@ export default function Prazos() {
     
     try {
       const { error } = await supabase
-        .from('prazos')
+        .from('prazos_lex.ai' as any)
         .update({ status: 'concluido', updated_at: new Date().toISOString() })
         .eq('id', id);
       

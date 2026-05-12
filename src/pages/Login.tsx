@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Gavel, User as UserIcon, Lock, Loader2, ArrowRight } from 'lucide-react';
+import { Scale, User as UserIcon, Lock, Loader2, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
@@ -42,12 +42,11 @@ export default function Login() {
       >
         <div className="bg-[#0F172A] border border-[#1E293B] rounded-xl p-8 shadow-2xl overflow-hidden group">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center p-2 bg-indigo-600 rounded text-white mb-6 shadow-lg shadow-indigo-600/20">
-              <Gavel size={24} />
+            <div className="flex justify-center mb-10">
+              <img src="/logo.png" alt="Lex.AI Logo" className="h-20 w-auto drop-shadow-[0_0_30px_rgba(99,102,241,0.4)]" />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-widest uppercase mb-1">J.ADV Prazos</h1>
             <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-              Security Terminal v2.0
+              Private Selection Terminal v3.0
             </p>
           </div>
 
