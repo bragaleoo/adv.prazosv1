@@ -39,9 +39,10 @@ export default function Prazos() {
     setIsCompleting(prazo.id);
     
     try {
+      const { client, ...prazoData } = prazo;
       const { error } = await supabase.rpc('save_prazo', {
         p_data: {
-          ...prazo,
+          ...prazoData,
           status: 'concluido'
         }
       });
