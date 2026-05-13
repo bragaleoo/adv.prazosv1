@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase';
 import { Loader2, Calendar, Gavel, User, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
-import { getTableNames } from '../hooks/useData';
 
 interface ModalPrazoProps {
   isOpen: boolean;
@@ -71,35 +70,14 @@ export function ModalPrazo({ isOpen, onClose, onSuccess, prazo, clients }: Modal
     setError(null);
 
     try {
-      const tables = getTableNames(user?.email);
+      const { error: rpcError } = await supabase.rpc('save_prazo', {
+        p_data: {
+          ...formData,
+          id: prazo?.id || null
+        }
+      });
       
-      if (prazo) {
-        // Update
-        const { error: updateError } = await supabase
-          .from(tables.prazos as any)
-          .update({
-            ...formData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', prazo.id);
-        
-        if (updateError) throw updateError;
-      } else {
-        // Create
-        if (!user) throw new Error('Usuário não autenticado.');
-
-        const { error: insertError } = await supabase
-          .from(tables.prazos as any)
-          .insert([{
-            ...formData,
-            user_id: user.id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }]);
-        
-        if (insertError) throw insertError;
-      }
-
+      if (rpcError) throw rpcError;
 
       onSuccess();
       onClose();

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { StatusBadge } from '../components/StatusBadge';
-import { usePrazos, getTableNames } from '../hooks/useData';
+import { usePrazos } from '../hooks/useData';
 import { useAuth } from '../contexts/AuthContext';
 import { format, parseISO, isPast, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -35,17 +35,16 @@ export default function Prazos() {
 
   const [isCompleting, setIsCompleting] = useState<string | null>(null);
 
-  const handleComplete = async (id: string) => {
-    setIsCompleting(id);
+  const handleComplete = async (prazo: Prazo) => {
+    setIsCompleting(prazo.id);
     
     try {
-      const tables = getTableNames(user?.email);
-      
-      const { error } = await supabase
-        .from(tables.prazos as any)
-        .update({ status: 'concluido', updated_at: new Date().toISOString() })
-        .eq('id', id);
-
+      const { error } = await supabase.rpc('save_prazo', {
+        p_data: {
+          ...prazo,
+          status: 'concluido'
+        }
+      });
       
       if (error) throw error;
       await refresh();
@@ -220,7 +219,7 @@ export default function Prazos() {
                             <Edit2 size={14} />
                           </button>
                           <button 
-                            onClick={() => handleComplete(prazo.id)}
+                            onClick={() => handleComplete(prazo)}
                             disabled={isCompleting === prazo.id}
                             className="p-1.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition-colors disabled:opacity-50" title="Concluir"
                           >
@@ -283,7 +282,7 @@ export default function Prazos() {
                       Editar
                     </button>
                     <button 
-                      onClick={() => handleComplete(prazo.id)}
+                      onClick={() => handleComplete(prazo)}
                       disabled={isCompleting === prazo.id}
                       className="flex-1 bg-emerald-600/10 text-emerald-500 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600/20 transition-colors disabled:opacity-50"
                     >

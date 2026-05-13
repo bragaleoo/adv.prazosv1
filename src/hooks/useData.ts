@@ -3,23 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Prazo, Client } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
-export function getTableNames(email?: string | null) {
-  const normalizedEmail = email?.toLowerCase() || '';
-  
-  // Bragaleo access - Lex.ai tables
-  if (normalizedEmail.includes('braga')) {
-    return {
-      prazos: 'prazos_lex.ai',
-      clients: 'client_lex.ai'
-    };
-  }
-  
-  // Alice & Melquisedec access (adv.brigido@gmail.com) - Melquisedec tables
-  return {
-    prazos: 'prazos_advmelqui',
-    clients: 'client_advmelqui'
-  };
-}
+
 
 
 
@@ -40,22 +24,16 @@ export function usePrazos() {
       setLoading(true);
       setError(null);
       
-      const tables = getTableNames(user.email);
-      
-      // Fetch prazos with client join
-      const { data: prazosData, error: prazosError } = await supabase
-        .from(tables.prazos as any)
-        .select(`*, client:"${tables.clients}"(*)`);
-
+      // Fetch prazos via RPC
+      const { data: prazosData, error: prazosError } = await supabase.rpc('get_my_prazos');
       if (prazosError) throw prazosError;
-      
-      const joinedPrazos = (prazosData || []).map(prazo => ({
-        ...prazo,
-        client: Array.isArray(prazo.client) ? prazo.client[0] : prazo.client // handle potential array from join
-      }));
 
-      setPrazos(joinedPrazos as Prazo[]);
-      setClients(Array.from(new Set(joinedPrazos.map(p => p.client))).filter(Boolean) as Client[]);
+      // Fetch clients via RPC
+      const { data: clientsData, error: clientsError } = await supabase.rpc('get_my_clients');
+      if (clientsError) throw clientsError;
+
+      setPrazos((prazosData || []) as Prazo[]);
+      setClients((clientsData || []) as Client[]);
       
     } catch (err: any) {
       console.error('Error fetching data:', err);
