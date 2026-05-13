@@ -16,7 +16,8 @@ import {
 } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { StatusBadge } from '../components/StatusBadge';
-import { usePrazos } from '../hooks/useData';
+import { usePrazos, getTableNames } from '../hooks/useData';
+import { useAuth } from '../contexts/AuthContext';
 import { format, parseISO, isPast, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState } from 'react';
@@ -27,6 +28,7 @@ import { supabase } from '../lib/supabase';
 
 export default function Prazos() {
   const { prazos, clients, loading, error, refresh } = usePrazos();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingPrazo, setEditingPrazo] = useState<Prazo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -37,10 +39,13 @@ export default function Prazos() {
     setIsCompleting(id);
     
     try {
+      const tables = getTableNames(user?.email);
+      
       const { error } = await supabase
-        .from('prazos_lex.ai' as any)
+        .from(tables.prazos as any)
         .update({ status: 'concluido', updated_at: new Date().toISOString() })
         .eq('id', id);
+
       
       if (error) throw error;
       await refresh();

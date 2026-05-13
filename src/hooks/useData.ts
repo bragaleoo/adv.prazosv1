@@ -3,6 +3,26 @@ import { supabase } from '../lib/supabase';
 import { Prazo, Client } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
+export function getTableNames(email?: string | null) {
+  const normalizedEmail = email?.toLowerCase() || '';
+  
+  // Bragaleo access - Lex.ai tables
+  if (normalizedEmail.includes('braga')) {
+    return {
+      prazos: 'prazos_lex.ai',
+      clients: 'client_lex.ai'
+    };
+  }
+  
+  // Alice & Melquisedec access (adv.brigido@gmail.com) - Melquisedec tables
+  // Assumes 'prazos' and 'client' are the target tables
+  return {
+    prazos: 'prazos',
+    clients: 'client'
+  };
+}
+
+
 export function usePrazos() {
   const [prazos, setPrazos] = useState<Prazo[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -20,10 +40,12 @@ export function usePrazos() {
       setLoading(true);
       setError(null);
       
+      const tables = getTableNames(user.email);
+      
       // Fetch prazos with client join
       const { data: prazosData, error: prazosError } = await supabase
-        .from('prazos_lex.ai' as any)
-        .select('*, client:"client_lex.ai"(*)');
+        .from(tables.prazos as any)
+        .select(`*, client:"${tables.clients}"(*)`);
 
       if (prazosError) throw prazosError;
       
@@ -51,3 +73,4 @@ export function usePrazos() {
 
   return { prazos, clients, loading, error, refresh: fetchData };
 }
+

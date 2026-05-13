@@ -4,6 +4,8 @@ import { Prazo, Client } from '../types';
 import { supabase } from '../lib/supabase';
 import { Loader2, Calendar, Gavel, User, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
+import { getTableNames } from '../hooks/useData';
 
 interface ModalPrazoProps {
   isOpen: boolean;
@@ -14,6 +16,7 @@ interface ModalPrazoProps {
 }
 
 export function ModalPrazo({ isOpen, onClose, onSuccess, prazo, clients }: ModalPrazoProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,10 +71,12 @@ export function ModalPrazo({ isOpen, onClose, onSuccess, prazo, clients }: Modal
     setError(null);
 
     try {
+      const tables = getTableNames(user?.email);
+      
       if (prazo) {
         // Update
         const { error: updateError } = await supabase
-          .from('prazos_lex.ai' as any)
+          .from(tables.prazos as any)
           .update({
             ...formData,
             updated_at: new Date().toISOString()
@@ -81,11 +86,10 @@ export function ModalPrazo({ isOpen, onClose, onSuccess, prazo, clients }: Modal
         if (updateError) throw updateError;
       } else {
         // Create
-        const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Usuário não autenticado.');
 
         const { error: insertError } = await supabase
-          .from('prazos_lex.ai' as any)
+          .from(tables.prazos as any)
           .insert([{
             ...formData,
             user_id: user.id,
@@ -95,6 +99,7 @@ export function ModalPrazo({ isOpen, onClose, onSuccess, prazo, clients }: Modal
         
         if (insertError) throw insertError;
       }
+
 
       onSuccess();
       onClose();
