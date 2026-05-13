@@ -15,12 +15,12 @@ export function getTableNames(email?: string | null) {
   }
   
   // Alice & Melquisedec access (adv.brigido@gmail.com) - Melquisedec tables
-  // Assumes 'prazos' and 'client' are the target tables
   return {
-    prazos: 'prazos',
-    clients: 'client'
+    prazos: 'prazos_advmelqui',
+    clients: 'client_advmelqui'
   };
 }
+
 
 
 export function usePrazos() {
