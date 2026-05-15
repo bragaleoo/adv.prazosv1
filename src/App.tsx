@@ -3,8 +3,11 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Prazos from './pages/Prazos';
-import Clientes from './pages/Clientes';
 import Semana from './pages/Semana';
+import Processos from './pages/Processos';
+import Andamentos from './pages/Andamentos';
+import Kanban from './pages/Kanban';
+import Publicacoes from './pages/Publicacoes';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -33,39 +36,18 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route 
-            path="/" 
-            element={
-              <PrivateRoute>
-                <Dashboard />
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path="/prazos" 
-            element={
-              <PrivateRoute>
-                <Prazos />
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path="/clientes" 
-            element={
-              <PrivateRoute>
-                <Clientes />
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path="/semana" 
-            element={
-              <PrivateRoute>
-                <Semana />
-              </PrivateRoute>
-            } 
-          />
-          {/* Fallback route */}
+
+          <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/prazos" element={<PrivateRoute><Prazos /></PrivateRoute>} />
+          <Route path="/semana" element={<PrivateRoute><Semana /></PrivateRoute>} />
+
+          {/* Novas rotas — Fase 1 */}
+          <Route path="/processos" element={<PrivateRoute><Processos /></PrivateRoute>} />
+          <Route path="/andamentos" element={<PrivateRoute><Andamentos /></PrivateRoute>} />
+          <Route path="/kanban" element={<PrivateRoute><Kanban /></PrivateRoute>} />
+          <Route path="/publicacoes" element={<PrivateRoute><Publicacoes /></PrivateRoute>} />
+
+          {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

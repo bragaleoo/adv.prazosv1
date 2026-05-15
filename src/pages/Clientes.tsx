@@ -35,7 +35,7 @@ export default function Clientes() {
         <div className="flex-1 flex relative group">
           <input 
             type="text" 
-            placeholder="Buscar por nome, WhatsApp ou origem..." 
+            placeholder="Buscar por nome ou documento..." 
             className="bg-[#0F172A] border border-[#1E293B] rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -77,7 +77,9 @@ export default function Clientes() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors truncate">{client.nome}</h3>
-                    <p className="text-[10px] font-mono text-slate-500 mt-0.5">{client.sender}</p>
+                    <p className="text-[10px] font-mono text-slate-500 mt-0.5">
+                      {client.sender.includes('@s.whatsapp.net') ? client.sender.split('@')[0] : client.sender}
+                    </p>
                   </div>
                   <button className="text-slate-600 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
                     <MoreVertical size={16} />
@@ -98,17 +100,11 @@ export default function Clientes() {
                 <div className="space-y-2 pt-3 border-t border-white/5 relative">
                   <div className="flex items-center justify-between text-[10px] font-medium tracking-tight">
                     <span className="text-slate-500 flex items-center gap-1.5 uppercase">
-                      <Clock size={12} /> Último Contato
+                      <Clock size={12} /> Última Atualização
                     </span>
                     <span className="text-slate-300 font-mono">
                       {client.ultimo_contato ? format(parseISO(client.ultimo_contato), 'dd/MM/yy') : 'N/A'}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-medium tracking-tight">
-                    <span className="text-slate-500 flex items-center gap-1.5 uppercase">
-                      <Briefcase size={12} /> Canal
-                    </span>
-                    <span className="text-slate-300 uppercase">{client.origem || 'WHATSAPP'}</span>
                   </div>
                 </div>
 

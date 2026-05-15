@@ -4,7 +4,7 @@ import { Header } from './Header';
 import { useAuth } from '../../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Gavel, LayoutDashboard, CalendarClock, Users, CalendarDays, LogOut } from 'lucide-react';
+import { X, LayoutDashboard, CalendarClock, Users, CalendarDays, LogOut, Scale, Bell, Kanban, BookOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { NavLink } from 'react-router-dom';
 import { ModalPrazo } from '../ModalPrazo';
@@ -40,9 +40,12 @@ export function MainLayout({ children, title, subtitle, refreshData }: MainLayou
 
   const menuLinks = [
     { to: '/', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+    { to: '/processos', icon: <Scale size={18} />, label: 'Processos' },
+    { to: '/andamentos', icon: <Bell size={18} />, label: 'Andamentos' },
+    { to: '/publicacoes', icon: <BookOpen size={18} />, label: 'Diário Oficial' },
     { to: '/prazos', icon: <CalendarClock size={18} />, label: 'Prazos' },
-    { to: '/clientes', icon: <Users size={18} />, label: 'Clientes' },
     { to: '/semana', icon: <CalendarDays size={18} />, label: 'Semana' },
+    { to: '/kanban', icon: <Kanban size={18} />, label: 'Kanban' },
   ];
 
   return (
