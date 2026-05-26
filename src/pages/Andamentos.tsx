@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { useAndamentos } from '../hooks/useData';
 import { Andamento } from '../types';
@@ -41,7 +41,7 @@ const URGENCIA_CONFIG = {
 function CardAndamento({ andamento, onMarcarTratado }: {
   andamento: Andamento;
   onMarcarTratado: (id: string) => Promise<void>;
-}) {
+}): React.JSX.Element {
   const [tratando, setTratando] = useState(false);
   const sugestao = andamento.sugestao_ia;
   const urgCfg = sugestao

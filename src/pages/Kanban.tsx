@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { useKanban } from '../hooks/useData';
 import { useProcessos, usePrazos } from '../hooks/useData';
@@ -160,7 +160,7 @@ function CardTarefa({ tarefa, onMover, onDeletar }: {
   tarefa: TarefaKanban;
   onMover: (id: string, status: KanbanStatus) => Promise<void>;
   onDeletar: (id: string) => Promise<void>;
-}) {
+}): React.JSX.Element {
   const [movendo, setMovendo] = useState(false);
   const vencida = tarefa.data_vencimento && isPast(parseISO(tarefa.data_vencimento)) && tarefa.status !== 'concluido';
   const venceHoje = tarefa.data_vencimento && isToday(parseISO(tarefa.data_vencimento));

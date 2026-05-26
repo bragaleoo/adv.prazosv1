@@ -86,7 +86,7 @@ export default function Publicacoes() {
   };
 
   return (
-    <MainLayout>
+    <MainLayout title="Diário Oficial" subtitle="Monitoramento automático de publicações vinculadas à sua OAB.">
       <div className="space-y-6">
         {/* Header Premium */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
