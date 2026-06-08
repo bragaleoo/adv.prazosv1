@@ -37,13 +37,25 @@ function ModalProcesso({ isOpen, onClose, onSuccess, clients, processoEdit }: Mo
   const { criarProcesso, atualizarProcesso } = useProcessos();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<any>({
-    numero_cnj: processoEdit?.numero_cnj || '',
-    titulo: processoEdit?.titulo || '',
-    nome_cliente: (processoEdit as any)?.nome_cliente || '',
-    tribunal: processoEdit?.tribunal || 'TJSE',
-    vara: processoEdit?.vara || '',
-    status: processoEdit?.status || 'ativo',
+    numero_cnj: '',
+    titulo: '',
+    nome_cliente: '',
+    tribunal: 'TJSE',
+    vara: '',
+    status: 'ativo',
   });
+
+  // Re-hidrata o formulário toda vez que o modal abre ou o processo muda
+  useEffect(() => {
+    setForm({
+      numero_cnj: processoEdit?.numero_cnj || '',
+      titulo: processoEdit?.titulo || '',
+      nome_cliente: (processoEdit as any)?.nome_cliente || '',
+      tribunal: processoEdit?.tribunal || 'TJSE',
+      vara: processoEdit?.vara || '',
+      status: processoEdit?.status || 'ativo',
+    });
+  }, [isOpen, processoEdit]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,34 +232,41 @@ interface ModalBuscarNomeProps {
   isOpen: boolean;
   onClose: () => void;
   onImportar: (resultado: DataJudProcesso, tribunal: string) => Promise<void>;
+  onImportarLote: (resultados: DataJudProcesso[], tribunal: string) => Promise<void>;
   profile: any;
+  processosCnjs: Set<string>; // CNJs já cadastrados no banco
 }
 
-function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNomeProps) {
+function ModalBuscarNome({ isOpen, onClose, onImportar, onImportarLote, profile, processosCnjs }: ModalBuscarNomeProps) {
+  const navigate = useNavigate();
   const [modo, setModo] = useState<ModoBusca>('oab');
   const [nome, setNome] = useState('');
   const [oabNumero, setOabNumero] = useState('');
   const [oabEstado, setOabEstado] = useState('SE');
-
-  useEffect(() => {
-    if (profile?.oab_numero) {
-      setOabNumero(profile.oab_numero);
-    }
-    if (profile?.oab_uf) {
-      setOabEstado(profile.oab_uf);
-    }
-  }, [profile]);
   const [tribunal, setTribunal] = useState('TJSE');
   const [buscando, setBuscando] = useState(false);
   const [resultados, setResultados] = useState<DataJudProcesso[]>([]);
-  const [importando, setImportando] = useState<string | null>(null);
   const [buscou, setBuscou] = useState(false);
 
+  // Seleção múltipla
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  // Estado de importação por processo
+  const [statusImport, setStatusImport] = useState<Record<string, 'importing' | 'success' | 'error' | 'duplicate'>>({});
+  const [importandoLote, setImportandoLote] = useState(false);
+
+  useEffect(() => {
+    if (profile?.oab_numero) setOabNumero(profile.oab_numero);
+    if (profile?.oab_uf) setOabEstado(profile.oab_uf);
+  }, [profile]);
+
+  // Ao buscar, limpa seleções e status anteriores
   const handleBuscar = async (e: React.FormEvent) => {
     e.preventDefault();
     setBuscando(true);
     setBuscou(false);
     setResultados([]);
+    setSelecionados(new Set());
+    setStatusImport({});
     try {
       const alias = TRIBUNAIS[tribunal];
       let res: DataJudProcesso[];
@@ -265,14 +284,68 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNo
     }
   };
 
-  const handleImportar = async (proc: DataJudProcesso) => {
-    setImportando(proc.numeroProcesso);
-    try {
-      await onImportar(proc, tribunal);
-    } finally {
-      setImportando(null);
+  const toggleSelecionado = (cnj: string) => {
+    setSelecionados(prev => {
+      const next = new Set(prev);
+      if (next.has(cnj)) next.delete(cnj);
+      else next.add(cnj);
+      return next;
+    });
+  };
+
+  const toggleSelecionarTodos = () => {
+    const disponiveis = resultados
+      .filter(p => !processosCnjs.has(p.numeroProcesso) && statusImport[p.numeroProcesso] !== 'success')
+      .map(p => p.numeroProcesso);
+    if (selecionados.size === disponiveis.length && disponiveis.length > 0) {
+      setSelecionados(new Set());
+    } else {
+      setSelecionados(new Set(disponiveis));
     }
   };
+
+  const importarLista = async (lista: DataJudProcesso[]) => {
+    setImportandoLote(true);
+    for (const proc of lista) {
+      setStatusImport(prev => ({ ...prev, [proc.numeroProcesso]: 'importing' }));
+      try {
+        await onImportar(proc, tribunal);
+        setStatusImport(prev => ({ ...prev, [proc.numeroProcesso]: 'success' }));
+        setSelecionados(prev => { const n = new Set(prev); n.delete(proc.numeroProcesso); return n; });
+      } catch (err: any) {
+        const isDuplicate = err.message?.includes('duplicate') || err.message?.includes('unique') || err.message?.includes('já está cadastrado');
+        setStatusImport(prev => ({ ...prev, [proc.numeroProcesso]: isDuplicate ? 'duplicate' : 'error' }));
+      }
+    }
+    setImportandoLote(false);
+  };
+
+  const handleImportarSelecionados = () => {
+    const lista = resultados.filter(p => selecionados.has(p.numeroProcesso));
+    importarLista(lista);
+  };
+
+  const handleImportarTodos = () => {
+    const lista = resultados.filter(p =>
+      !processosCnjs.has(p.numeroProcesso) &&
+      statusImport[p.numeroProcesso] !== 'success' &&
+      statusImport[p.numeroProcesso] !== 'duplicate'
+    );
+    importarLista(lista);
+  };
+
+  const handleClose = () => {
+    const temSucesso = Object.values(statusImport).some(s => s === 'success');
+    onClose();
+    if (temSucesso) navigate('/andamentos');
+  };
+
+  const nSelecionados = selecionados.size;
+  const nDisponiveis = resultados.filter(p =>
+    !processosCnjs.has(p.numeroProcesso) &&
+    statusImport[p.numeroProcesso] !== 'success' &&
+    statusImport[p.numeroProcesso] !== 'duplicate'
+  ).length;
 
   if (!isOpen) return null;
 
@@ -281,12 +354,12 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNo
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        onClick={onClose}
+        onClick={handleClose}
       >
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="bg-[#0F172A] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh]"
+          className="bg-[#0F172A] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
@@ -298,37 +371,28 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNo
               </h2>
               <p className="text-slate-500 text-xs mt-0.5">Base de dados unificada · Busca por OAB ou nome da parte</p>
             </div>
-            <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
+            <button onClick={handleClose} className="text-slate-500 hover:text-white transition-colors">
               <X size={20} />
             </button>
           </div>
 
           {/* Tabs modo de busca */}
           <div className="px-5 pt-4 pb-0 flex gap-2 flex-shrink-0">
-            <button
-              onClick={() => setModo('oab')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-semibold border-b-2 transition-all',
-                modo === 'oab'
-                  ? 'text-indigo-300 border-indigo-500 bg-indigo-500/5'
-                  : 'text-slate-500 border-transparent hover:text-slate-300'
-              )}
-            >
-              <Scale size={14} />
-              Número OAB
-            </button>
-            <button
-              onClick={() => setModo('nome')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-semibold border-b-2 transition-all',
-                modo === 'nome'
-                  ? 'text-indigo-300 border-indigo-500 bg-indigo-500/5'
-                  : 'text-slate-500 border-transparent hover:text-slate-300'
-              )}
-            >
-              <User size={14} />
-              Nome da Parte
-            </button>
+            {(['oab', 'nome'] as ModoBusca[]).map(m => (
+              <button
+                key={m}
+                onClick={() => setModo(m)}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-semibold border-b-2 transition-all',
+                  modo === m
+                    ? 'text-indigo-300 border-indigo-500 bg-indigo-500/5'
+                    : 'text-slate-500 border-transparent hover:text-slate-300'
+                )}
+              >
+                {m === 'oab' ? <Scale size={14} /> : <User size={14} />}
+                {m === 'oab' ? 'Número OAB' : 'Nome da Parte'}
+              </button>
+            ))}
           </div>
 
           {/* Form */}
@@ -339,42 +403,30 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNo
                   <div className="flex-1">
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Sua OAB</label>
                     <input
-                      type="text"
-                      placeholder="Nenhuma OAB configurada"
-                      value={oabNumero}
-                      onChange={e => setOabNumero(e.target.value)}
-                      required
-                      disabled
+                      type="text" placeholder="Nenhuma OAB configurada"
+                      value={oabNumero} onChange={e => setOabNumero(e.target.value)}
+                      required disabled
                       className="w-full bg-slate-800/30 border border-white/5 rounded-lg px-4 py-2.5 text-slate-400 placeholder-slate-600 text-sm cursor-not-allowed font-mono"
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Seccional</label>
-                    <select
-                      value={oabEstado}
-                      onChange={e => setOabEstado(e.target.value)}
-                      disabled
-                      className="bg-slate-800/30 border border-white/5 rounded-lg px-3 py-2.5 text-slate-400 text-sm cursor-not-allowed appearance-none min-w-[80px]"
-                    >
+                    <select value={oabEstado} onChange={e => setOabEstado(e.target.value)} disabled
+                      className="bg-slate-800/30 border border-white/5 rounded-lg px-3 py-2.5 text-slate-400 text-sm cursor-not-allowed appearance-none min-w-[80px]">
                       {ESTADOS_OAB.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tribunal</label>
-                    <select
-                      value={tribunal}
-                      onChange={e => setTribunal(e.target.value)}
-                      className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none appearance-none min-w-[90px]"
-                    >
+                    <select value={tribunal} onChange={e => setTribunal(e.target.value)}
+                      className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none appearance-none min-w-[90px]">
                       {Object.keys(TRIBUNAIS).map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div className="flex flex-col">
                     <label className="block text-xs font-semibold text-transparent mb-1.5">.</label>
-                    <button
-                      type="submit" disabled={buscando || !oabNumero}
-                      className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
+                    <button type="submit" disabled={buscando || !oabNumero}
+                      className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
                       {buscando ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
                       Buscar
                     </button>
@@ -390,31 +442,21 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNo
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nome da Parte</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: João da Silva Santos"
-                    value={nome}
-                    onChange={e => setNome(e.target.value)}
-                    required
-                    className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-slate-600 text-sm focus:outline-none focus:border-indigo-500/50"
-                  />
+                  <input type="text" placeholder="Ex: João da Silva Santos"
+                    value={nome} onChange={e => setNome(e.target.value)} required
+                    className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-slate-600 text-sm focus:outline-none focus:border-indigo-500/50" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tribunal</label>
-                  <select
-                    value={tribunal}
-                    onChange={e => setTribunal(e.target.value)}
-                    className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none appearance-none min-w-[90px]"
-                  >
+                  <select value={tribunal} onChange={e => setTribunal(e.target.value)}
+                    className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none appearance-none min-w-[90px]">
                     {Object.keys(TRIBUNAIS).map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="flex flex-col">
                   <label className="block text-xs font-semibold text-transparent mb-1.5">.</label>
-                  <button
-                    type="submit" disabled={buscando}
-                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
-                  >
+                  <button type="submit" disabled={buscando}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-50 flex items-center gap-2">
                     {buscando ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
                     Buscar
                   </button>
@@ -427,6 +469,60 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNo
                 : '💡 Busca pelo nome exato da parte (autor, réu ou advogado). Use nome completo.'}
             </p>
           </form>
+
+          {/* Barra de ação em lote — aparece quando há resultados */}
+          {resultados.length > 0 && (
+            <div className="px-4 py-3 border-b border-white/5 flex-shrink-0 flex items-center justify-between gap-3 bg-slate-900/60">
+              <div className="flex items-center gap-3">
+                {/* Checkbox selecionar todos */}
+                <button
+                  onClick={toggleSelecionarTodos}
+                  disabled={importandoLote}
+                  title="Selecionar / desmarcar todos"
+                  className={cn(
+                    'w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all',
+                    selecionados.size > 0 && selecionados.size === nDisponiveis
+                      ? 'bg-indigo-500 border-indigo-500'
+                      : selecionados.size > 0
+                        ? 'bg-indigo-500/30 border-indigo-500'
+                        : 'bg-transparent border-slate-600 hover:border-indigo-400'
+                  )}
+                >
+                  {selecionados.size > 0 && (
+                    <CheckCircle2 size={12} className="text-white" />
+                  )}
+                </button>
+                <span className="text-xs text-slate-400">
+                  {nSelecionados > 0
+                    ? <span className="text-indigo-300 font-semibold">{nSelecionados} selecionado{nSelecionados !== 1 ? 's' : ''}</span>
+                    : <span>Selecionar para importar em lote</span>
+                  }
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {nSelecionados > 0 && (
+                  <button
+                    onClick={handleImportarSelecionados}
+                    disabled={importandoLote}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                  >
+                    {importandoLote ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+                    Importar selecionados ({nSelecionados})
+                  </button>
+                )}
+                {nDisponiveis > 0 && (
+                  <button
+                    onClick={handleImportarTodos}
+                    disabled={importandoLote}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                  >
+                    {importandoLote ? <Loader2 size={11} className="animate-spin" /> : <Import size={11} />}
+                    Importar todos ({nDisponiveis})
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Resultados */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
@@ -455,20 +551,70 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNo
               <div className="space-y-2">
                 <p className="text-xs text-slate-500 font-mono mb-3">{resultados.length} PROCESSO(S) · {tribunal}</p>
                 {resultados.map(proc => {
-                  const partes = proc.partes?.map(p => p.nome).join(' × ') || proc.numeroProcesso;
+                  const cnj = proc.numeroProcesso;
+                  const jaImportado = processosCnjs.has(cnj);
+                  const status = statusImport[cnj];
+                  const isSelecionado = selecionados.has(cnj);
+                  const isDisabled = jaImportado || status === 'success' || status === 'duplicate' || importandoLote;
+
+                  const partes = proc.partes?.map(p => p.nome).join(' × ') || cnj;
                   const ultimoMov = proc.movimentos?.[0]?.nome || '—';
                   const advs = proc.partes?.filter(p =>
                     p.tipo?.toLowerCase().includes('adv')
                   ).map(p => p.nome).join(', ');
-                  const isImportando = importando === proc.numeroProcesso;
+
                   return (
-                    <div key={proc.numeroProcesso}
-                      className="bg-slate-800/50 border border-white/5 hover:border-white/10 rounded-xl p-4 transition-all"
+                    <div
+                      key={cnj}
+                      onClick={() => !isDisabled && toggleSelecionado(cnj)}
+                      className={cn(
+                        'border rounded-xl p-4 transition-all cursor-pointer select-none',
+                        isDisabled ? 'opacity-60 cursor-default' : 'hover:border-white/20',
+                        isSelecionado && !isDisabled
+                          ? 'bg-indigo-500/10 border-indigo-500/40'
+                          : status === 'success' || (jaImportado && !status)
+                            ? 'bg-emerald-500/5 border-emerald-500/20'
+                            : status === 'error'
+                              ? 'bg-rose-500/5 border-rose-500/20'
+                              : 'bg-slate-800/50 border-white/5'
+                      )}
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        {/* Checkbox */}
+                        <div className={cn(
+                          'mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all',
+                          isDisabled
+                            ? 'bg-transparent border-slate-700 cursor-default'
+                            : isSelecionado
+                              ? 'bg-indigo-500 border-indigo-500'
+                              : 'bg-transparent border-slate-600'
+                        )}>
+                          {isSelecionado && !isDisabled && <CheckCircle2 size={12} className="text-white" />}
+                          {(status === 'success') && <CheckCircle2 size={12} className="text-emerald-400" />}
+                          {(status === 'duplicate' || jaImportado) && <CheckCircle2 size={12} className="text-slate-500" />}
+                          {status === 'error' && <AlertCircle size={12} className="text-rose-400" />}
+                        </div>
+
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-medium text-sm line-clamp-2">{partes}</p>
-                          <p className="text-indigo-400 text-xs font-mono mt-1">{formatarNumeroCNJ(proc.numeroProcesso)}</p>
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-white font-medium text-sm line-clamp-2">{partes}</p>
+                            {/* Badge de status */}
+                            {(jaImportado || status) && (
+                              <span className={cn(
+                                'flex-shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full',
+                                status === 'importing' ? 'bg-indigo-500/20 text-indigo-300' :
+                                status === 'success' ? 'bg-emerald-500/20 text-emerald-300' :
+                                status === 'error' ? 'bg-rose-500/20 text-rose-300' :
+                                status === 'duplicate' || jaImportado ? 'bg-slate-700 text-slate-400' : ''
+                              )}>
+                                {status === 'importing' ? '⏳ Importando...' :
+                                 status === 'success' ? '✅ Importado' :
+                                 status === 'error' ? '⚠️ Erro' :
+                                 (status === 'duplicate' || jaImportado) ? 'Já cadastrado' : ''}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-indigo-400 text-xs font-mono mt-1">{formatarNumeroCNJ(cnj)}</p>
                           {advs && (
                             <p className="text-xs text-slate-400 mt-1">
                               <span className="text-slate-600">Adv.:</span> {advs}
@@ -486,14 +632,6 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNo
                           </div>
                           <p className="text-xs text-slate-600 mt-1.5 line-clamp-1">Último: {ultimoMov}</p>
                         </div>
-                        <button
-                          onClick={() => handleImportar(proc)}
-                          disabled={isImportando}
-                          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-                        >
-                          {isImportando ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
-                          Importar
-                        </button>
                       </div>
                     </div>
                   );
@@ -557,34 +695,33 @@ export default function Processos() {
     }
   }, [user, fetchProfile]);
 
+  // Conjunto de CNJs já cadastrados — usado pelo modal de busca para marcar duplicatas
+  const processosCnjs = new Set(processos.map(p => p.numero_cnj));
+
   const handleImportarDoEscavador = async (proc: DataJudProcesso, tribunal: string) => {
     const partes = proc.partes?.map(p => p.nome).join(' × ') || proc.numeroProcesso;
-    try {
-      const novoProcesso = await criarProcesso({
-        numero_cnj: proc.numeroProcesso,
-        titulo: partes,
-        tribunal,
-        tribunal_alias: TRIBUNAIS[tribunal] || tribunal.toLowerCase(),
-        vara: proc.orgaoJulgador?.nome || null,
-        status: 'ativo',
-        cliente_id: null,
-        ultima_consulta_datajud: null,
-        updated_at: new Date().toISOString(),
-      } as any);
-      
-      alert(`✅ Processo importado: ${formatarNumeroCNJ(proc.numeroProcesso)}`);
-      
-      if (novoProcesso) {
-        await handleConsultarEscavador(novoProcesso);
-        setModalBuscarNome(false);
-        navigate('/andamentos');
-      }
-    } catch (err: any) {
-      if (err.message?.includes('duplicate') || err.message?.includes('unique')) {
-        alert('Este processo já está cadastrado.');
-      } else {
-        alert('Erro ao importar: ' + err.message);
-      }
+
+    // Verifica duplicata antes de tentar inserir
+    if (processosCnjs.has(proc.numeroProcesso)) {
+      throw new Error('já está cadastrado');
+    }
+
+    const novoProcesso = await criarProcesso({
+      numero_cnj: proc.numeroProcesso,
+      titulo: partes,
+      tribunal,
+      tribunal_alias: TRIBUNAIS[tribunal] || tribunal.toLowerCase(),
+      vara: proc.orgaoJulgador?.nome || null,
+      status: 'ativo',
+      cliente_id: null,
+      ultima_consulta_datajud: null,
+      updated_at: new Date().toISOString(),
+    } as any);
+
+    if (novoProcesso) {
+      // Sincroniza andamentos em background (não bloqueia o loop de lote)
+      handleConsultarEscavador(novoProcesso).catch(console.error);
+      refresh();
     }
   };
 
@@ -694,7 +831,11 @@ export default function Processos() {
         isOpen={modalBuscarNome}
         onClose={() => setModalBuscarNome(false)}
         onImportar={handleImportarDoEscavador}
+        onImportarLote={async (lista, tribunal) => {
+          for (const proc of lista) await handleImportarDoEscavador(proc, tribunal);
+        }}
         profile={profile}
+        processosCnjs={processosCnjs}
       />
 
       {/* Stats */}
