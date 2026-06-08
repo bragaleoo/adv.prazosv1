@@ -77,26 +77,122 @@ function mapearProcessoEscavador(esc: any): DataJudProcesso {
   }));
 
   // 2. Converte as partes envolvidas
-  const rawPartes = esc.partes || esc.envolvidos_ultima_movimentacao || [];
-  const partes: DataJudParte[] = [];
-  rawPartes.forEach((p: any) => {
-    const tipo = p.tipo || p.pivot_tipo || p.envolvido_tipo || 'Parte';
-    partes.push({
-      nome: p.nome || 'Parte Sem Nome',
-      tipo: tipo,
-    });
+  const involvedMap = new Map<string, DataJudParte>();
 
-    // Se houver advogados aninhados na parte, adiciona-os também na lista
-    if (p.advogados && Array.isArray(p.advogados)) {
-      p.advogados.forEach((adv: any) => {
-        partes.push({
-          nome: adv.nome || 'Advogado Sem Nome',
-          tipo: 'Advogado',
-          documento: adv.oab || undefined,
+  // Auxiliar para normalizar o tipo de envolvido
+  const normalizarTipo = (t: string) => {
+    if (!t) return 'Parte';
+    if (t.toLowerCase().includes('adv')) return 'Advogado';
+    return t;
+  };
+
+  // 2.1 Verifica esc.partes (V1)
+  if (Array.isArray(esc.partes)) {
+    esc.partes.forEach((p: any) => {
+      if (p.nome) {
+        involvedMap.set(p.nome, {
+          nome: p.nome,
+          tipo: normalizarTipo(p.tipo),
         });
-      });
+        if (Array.isArray(p.advogados)) {
+          p.advogados.forEach((adv: any) => {
+            if (adv.nome) {
+              involvedMap.set(adv.nome, {
+                nome: adv.nome,
+                tipo: 'Advogado',
+                documento: adv.oab || undefined,
+              });
+            }
+          });
+        }
+      }
+    });
+  }
+
+  // 2.2 Verifica esc.envolvidos_ultima_movimentacao
+  if (Array.isArray(esc.envolvidos_ultima_movimentacao)) {
+    esc.envolvidos_ultima_movimentacao.forEach((p: any) => {
+      if (p.nome) {
+        involvedMap.set(p.nome, {
+          nome: p.nome,
+          tipo: normalizarTipo(p.tipo || p.pivot_tipo || p.envolvido_tipo),
+        });
+      }
+    });
+  }
+
+  // 2.3 Verifica esc.fontes[...].envolvidos (V2 advogado/processos e envolvido/processos)
+  if (Array.isArray(esc.fontes)) {
+    esc.fontes.forEach((f: any) => {
+      if (Array.isArray(f.envolvidos)) {
+        f.envolvidos.forEach((p: any) => {
+          if (p.nome) {
+            involvedMap.set(p.nome, {
+              nome: p.nome,
+              tipo: normalizarTipo(p.tipo || p.tipo_normalizado),
+            });
+            if (Array.isArray(p.advogados)) {
+              p.advogados.forEach((adv: any) => {
+                if (adv.nome) {
+                  involvedMap.set(adv.nome, {
+                    nome: adv.nome,
+                    tipo: 'Advogado',
+                    documento: adv.oab || undefined,
+                  });
+                }
+              });
+            }
+          }
+        });
+      }
+    });
+  }
+
+  // 2.4 Verifica esc.ultimas_movimentacoes_resumo[...].envolvidos_resumo (V1 resumo)
+  if (Array.isArray(esc.ultimas_movimentacoes_resumo)) {
+    esc.ultimas_movimentacoes_resumo.forEach((m: any) => {
+      if (Array.isArray(m.envolvidos_resumo)) {
+        m.envolvidos_resumo.forEach((p: any) => {
+          if (p.nome) {
+            involvedMap.set(p.nome, {
+              nome: p.nome,
+              tipo: normalizarTipo(p.tipo || p.envolvido_tipo),
+              documento: p.oab || undefined,
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // 2.5 Verifica esc.movimentacoes[...].envolvidos (V1 movimentações detalhadas)
+  if (Array.isArray(esc.movimentacoes)) {
+    esc.movimentacoes.forEach((m: any) => {
+      if (Array.isArray(m.envolvidos)) {
+        m.envolvidos.forEach((p: any) => {
+          if (p.nome) {
+            involvedMap.set(p.nome, {
+              nome: p.nome,
+              tipo: normalizarTipo(p.tipo || p.envolvido_tipo),
+              documento: p.oab || undefined,
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // 2.6 Se a lista ainda estiver vazia, tenta extrair dos títulos de polo ativo/passivo da capa (V2)
+  if (involvedMap.size === 0) {
+    if (esc.titulo_polo_ativo) {
+      involvedMap.set(esc.titulo_polo_ativo, { nome: esc.titulo_polo_ativo, tipo: 'Polo Ativo' });
     }
-  });
+    if (esc.titulo_polo_passivo) {
+      involvedMap.set(esc.titulo_polo_passivo, { nome: esc.titulo_polo_passivo, tipo: 'Polo Passivo' });
+    }
+  }
+
+  const partes = Array.from(involvedMap.values());
 
   const numCnj = esc.numero_cnj || esc.numero_novo || '';
 

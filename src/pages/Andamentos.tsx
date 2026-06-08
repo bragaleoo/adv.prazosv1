@@ -10,6 +10,7 @@ import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatarNumeroCNJ } from '../lib/escavador';
 
 const URGENCIA_CONFIG = {
   alta: {
@@ -96,8 +97,13 @@ function CardAndamento({ andamento, onMarcarTratado }: {
           </div>
 
           {/* Processo */}
-          <div className="text-xs text-indigo-400 font-medium mb-1.5">
-            {andamento.processo?.titulo || 'Processo sem título'}
+          <div className="text-xs font-semibold mb-1.5 flex items-center justify-between gap-2">
+            <span className="text-indigo-400 line-clamp-1">{andamento.processo?.titulo || 'Processo sem título'}</span>
+            {andamento.processo?.numero_cnj && (
+              <span className="text-[10px] text-slate-500 font-mono flex-shrink-0">
+                {formatarNumeroCNJ(andamento.processo.numero_cnj)}
+              </span>
+            )}
           </div>
 
           {/* Descrição do andamento */}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { useProcessos } from '../hooks/useData';
@@ -520,6 +521,7 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNo
 // ─── Página Principal ─────────────────────────────────────────────────────────
 
 export default function Processos() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { processos, loading, error, refresh, deletarProcesso, criarProcesso } = useProcessos();
   const { clients } = usePrazos();
@@ -573,7 +575,9 @@ export default function Processos() {
       alert(`✅ Processo importado: ${formatarNumeroCNJ(proc.numeroProcesso)}`);
       
       if (novoProcesso) {
-        handleConsultarEscavador(novoProcesso);
+        await handleConsultarEscavador(novoProcesso);
+        setModalBuscarNome(false);
+        navigate('/andamentos');
       }
     } catch (err: any) {
       if (err.message?.includes('duplicate') || err.message?.includes('unique')) {
@@ -607,16 +611,34 @@ export default function Processos() {
       // Salva andamentos novos no banco
       for (const mov of movimentos) {
         const dataMovimento = new Date(mov.dataHora).toISOString();
+        const novaDesc = mov.nome + (mov.complemento ? ` — ${mov.complemento}` : '');
 
         // Verifica se já existe esse andamento
         const { data: existing } = await supabase
           .from('andamentos')
-          .select('id')
+          .select('id, descricao')
           .eq('processo_id', processo.id)
           .eq('data_andamento', dataMovimento)
           .maybeSingle();
 
-        if (existing) continue;
+        if (existing) {
+          // Cura andamentos que foram salvos truncados (terminados em "...") anteriormente
+          const descSalva = existing.descricao || '';
+          const isTruncated = descSalva.endsWith('...') || descSalva.endsWith('... ');
+          const isNewFuller = novaDesc.length > descSalva.length && !novaDesc.endsWith('...');
+          
+          if (isTruncated || isNewFuller) {
+            const sugestao = await analisarAndamento(mov.nome, processo.titulo);
+            await supabase
+              .from('andamentos')
+              .update({
+                descricao: novaDesc,
+                sugestao_ia: sugestao,
+              })
+              .eq('id', existing.id);
+          }
+          continue;
+        }
 
         // Analisa com IA
         const sugestao = await analisarAndamento(mov.nome, processo.titulo);
@@ -624,7 +646,7 @@ export default function Processos() {
         await supabase.from('andamentos').insert({
           processo_id: processo.id,
           data_andamento: dataMovimento,
-          descricao: mov.nome + (mov.complemento ? ` — ${mov.complemento}` : ''),
+          descricao: novaDesc,
           codigo_movimento: String(mov.codigo),
           tratado: false,
           sugestao_ia: sugestao,
