@@ -63,22 +63,27 @@ function mapearProcessoEscavador(esc: any): DataJudProcesso {
     siglaTribunal = esc.tribunal;
   } else if (esc.tribunal && esc.tribunal.sigla) {
     siglaTribunal = esc.tribunal.sigla;
+  } else if (esc.diario_sigla) {
+    siglaTribunal = esc.diario_sigla;
   }
 
   // 1. Converte as movimentações (andamentos)
-  const movimentos: DataJudMovimento[] = (esc.movimentacoes || []).map((m: any) => ({
+  const rawMovs = esc.movimentacoes || esc.ultimas_movimentacoes_resumo || [];
+  const movimentos: DataJudMovimento[] = rawMovs.map((m: any) => ({
     codigo: m.id || 0,
-    nome: m.texto || m.conteudo || 'Movimentação Processual',
+    nome: m.texto || m.conteudo || m.conteudo_resumo || 'Movimentação Processual',
     dataHora: m.data || new Date().toISOString(),
     complemento: m.tipo || '',
   }));
 
   // 2. Converte as partes envolvidas
+  const rawPartes = esc.partes || esc.envolvidos_ultima_movimentacao || [];
   const partes: DataJudParte[] = [];
-  (esc.partes || []).forEach((p: any) => {
+  rawPartes.forEach((p: any) => {
+    const tipo = p.tipo || p.pivot_tipo || p.envolvido_tipo || 'Parte';
     partes.push({
       nome: p.nome || 'Parte Sem Nome',
-      tipo: p.tipo || 'Parte',
+      tipo: tipo,
     });
 
     // Se houver advogados aninhados na parte, adiciona-os também na lista
@@ -93,18 +98,20 @@ function mapearProcessoEscavador(esc: any): DataJudProcesso {
     }
   });
 
+  const numCnj = esc.numero_cnj || esc.numero_novo || '';
+
   return {
-    id: String(esc.id || esc.numero_cnj || Math.random()),
-    numeroProcesso: esc.numero_cnj?.replace(/\D/g, '') || '',
-    classe: { codigo: 0, nome: esc.classe || 'Procedimento Judicial' },
+    id: String(esc.id || numCnj || Math.random()),
+    numeroProcesso: numCnj.replace(/\D/g, '') || '',
+    classe: { codigo: 0, nome: esc.classe || esc.tipo_ultima_movimentacao || 'Procedimento Judicial' },
     sistema: { codigo: 0, nome: esc.sistema || 'PJe' },
     formato: { codigo: 0, nome: 'Eletrônico' },
     tribunal: siglaTribunal,
     grau: esc.grau || '1º Grau',
-    dataAjuizamento: esc.data_inicio || new Date().toISOString(),
-    dataHoraUltimaAtualizacao: esc.data_ultima_movimentacao || new Date().toISOString(),
+    dataAjuizamento: esc.data_inicio || esc.created_at || new Date().toISOString(),
+    dataHoraUltimaAtualizacao: esc.data_ultima_movimentacao || esc.updated_at || new Date().toISOString(),
     movimentos,
-    orgaoJulgador: { codigo: 0, nome: esc.orgao_julgador || 'Vara / Juízo', codigoMunicipioIBGE: 0 },
+    orgaoJulgador: { codigo: 0, nome: esc.orgao_julgador || esc.secao || 'Vara / Juízo', codigoMunicipioIBGE: 0 },
     assuntos: (esc.assuntos || []).map((a: any) => ({
       codigo: 0,
       nome: typeof a === 'string' ? a : a.nome || 'Assunto',

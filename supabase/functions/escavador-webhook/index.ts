@@ -224,7 +224,7 @@ serve(async (req) => {
       });
     }
 
-    // ─── 2.1 PROXY: BUSCAR PROCESSO POR CNJ (GET /processo-cnj) ───────────────
+        // ─── 2.1 PROXY: BUSCAR PROCESSO POR CNJ (GET /processo-cnj) ───────────────
     if (path.endsWith('/processo-cnj')) {
       if (req.method !== 'GET') {
         return new Response('Método não permitido', { status: 405, headers: CORS_HEADERS });
@@ -245,7 +245,7 @@ serve(async (req) => {
         });
       }
 
-      const escavadorUrl = `https://api.escavador.com/api/v2/processos/numero/${cnj}`;
+      const escavadorUrl = `https://api.escavador.com/api/v1/processos/numero/${cnj}`;
       const response = await fetch(escavadorUrl, {
         method: 'GET',
         headers: {
@@ -255,7 +255,16 @@ serve(async (req) => {
       });
 
       const data = await response.json();
-      return new Response(JSON.stringify(data), {
+      
+      // Se vier uma lista de processos, extrai o primeiro para consistência com o frontend
+      let processo = null;
+      if (Array.isArray(data) && data.length > 0) {
+        processo = data[0];
+      } else if (data && !Array.isArray(data) && (data.numero_novo || data.numero_cnj)) {
+        processo = data;
+      }
+
+      return new Response(JSON.stringify({ processo }), {
         status: response.status,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
@@ -282,7 +291,7 @@ serve(async (req) => {
         });
       }
 
-      const escavadorUrl = `https://api.escavador.com/api/v2/busca?q=${encodeURIComponent(q)}&tipo=processo`;
+      const escavadorUrl = `https://api.escavador.com/api/v2/envolvido/processos?nome=${encodeURIComponent(q)}`;
       const response = await fetch(escavadorUrl, {
         method: 'GET',
         headers: {
