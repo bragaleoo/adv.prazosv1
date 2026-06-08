@@ -214,6 +214,86 @@ serve(async (req) => {
       });
     }
 
+    // ─── 2.1 PROXY: BUSCAR PROCESSO POR CNJ (GET /processo-cnj) ───────────────
+    if (path.endsWith('/processo-cnj')) {
+      if (req.method !== 'GET') {
+        return new Response('Método não permitido', { status: 405, headers: CORS_HEADERS });
+      }
+
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Token inválido ou expirado' }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      const cnj = url.searchParams.get('numero');
+      if (!cnj) {
+        return new Response(JSON.stringify({ error: 'O número do processo (numero) é obrigatório' }), {
+          status: 400,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const escavadorUrl = `https://api.escavador.com/api/v2/processos/numero/${cnj}`;
+      const response = await fetch(escavadorUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${escavadorKey}`,
+        },
+      });
+
+      const data = await response.json();
+      return new Response(JSON.stringify(data), {
+        status: response.status,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ─── 2.2 PROXY: BUSCAR PROCESSOS POR NOME/TERMO (GET /busca) ──────────────
+    if (path.endsWith('/busca')) {
+      if (req.method !== 'GET') {
+        return new Response('Método não permitido', { status: 405, headers: CORS_HEADERS });
+      }
+
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Token inválido ou expirado' }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      const q = url.searchParams.get('q');
+      if (!q) {
+        return new Response(JSON.stringify({ error: 'O termo de busca (q) é obrigatório' }), {
+          status: 400,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const escavadorUrl = `https://api.escavador.com/api/v2/busca?q=${encodeURIComponent(q)}&tipo=processo`;
+      const response = await fetch(escavadorUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${escavadorKey}`,
+        },
+      });
+
+      const data = await response.json();
+      return new Response(JSON.stringify(data), {
+        status: response.status,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
     // ─── 3. PROXY: ATIVAR MONITORAMENTO (POST /monitorar) ─────────────────────
     if (path.endsWith('/monitorar')) {
       if (req.method !== 'POST') {

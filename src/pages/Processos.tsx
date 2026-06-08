@@ -3,7 +3,8 @@ import { MainLayout } from '../components/layout/MainLayout';
 import { useProcessos } from '../hooks/useData';
 import { usePrazos } from '../hooks/useData';
 import { Processo } from '../types';
-import { TRIBUNAIS, consultarProcesso, buscarPorNome, buscarPorOAB, extrairAndamentosRecentes, formatarNumeroCNJ, DataJudProcesso } from '../lib/datajud';
+import { TRIBUNAIS, consultarProcesso, buscarPorNome, buscarPorOAB, extrairAndamentosRecentes, formatarNumeroCNJ } from '../lib/escavador';
+import { DataJudProcesso } from '../lib/datajud';
 import { analisarAndamento } from '../lib/ai';
 import { supabase } from '../lib/supabase';
 import {
@@ -281,9 +282,9 @@ function ModalBuscarNome({ isOpen, onClose, onImportar }: ModalBuscarNomeProps) 
             <div>
               <h2 className="text-white font-bold text-lg flex items-center gap-2">
                 <UserSearch size={18} className="text-indigo-400" />
-                Buscar Processos no DataJud
+                Buscar Processos no Escavador
               </h2>
-              <p className="text-slate-500 text-xs mt-0.5">API pública do CNJ · Busca por OAB ou nome da parte</p>
+              <p className="text-slate-500 text-xs mt-0.5">Base de dados unificada · Busca por OAB ou nome da parte</p>
             </div>
             <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
               <X size={20} />
@@ -412,7 +413,7 @@ function ModalBuscarNome({ isOpen, onClose, onImportar }: ModalBuscarNomeProps) 
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <Loader2 size={28} className="animate-spin text-indigo-500 mx-auto mb-3" />
-                  <p className="text-slate-500 text-sm">Consultando DataJud · CNJ...</p>
+                  <p className="text-slate-500 text-sm">Consultando API do Escavador...</p>
                 </div>
               </div>
             )}
@@ -508,7 +509,7 @@ export default function Processos() {
   const [processoEdit, setProcessoEdit] = useState<Processo | null>(null);
   const [consultando, setConsultando] = useState<string | null>(null);
 
-  const handleImportarDoDataJud = async (proc: DataJudProcesso, tribunal: string) => {
+  const handleImportarDoEscavador = async (proc: DataJudProcesso, tribunal: string) => {
     const partes = proc.partes?.map(p => p.nome).join(' × ') || proc.numeroProcesso;
     try {
       await criarProcesso({
@@ -541,12 +542,12 @@ export default function Processos() {
     return matchBusca && matchStatus;
   });
 
-  const handleConsultarDataJud = async (processo: Processo) => {
+  const handleConsultarEscavador = async (processo: Processo) => {
     setConsultando(processo.id);
     try {
-      const resultado = await consultarProcesso(processo.numero_cnj, processo.tribunal_alias);
+      const resultado = await consultarProcesso(processo.numero_cnj);
       if (!resultado) {
-        alert('Processo não encontrado no DataJud para este tribunal.');
+        alert('Processo não encontrado no Escavador.');
         return;
       }
 
@@ -585,7 +586,7 @@ export default function Processos() {
         .update({ ultima_consulta_datajud: new Date().toISOString() })
         .eq('id', processo.id);
 
-      alert(`✅ ${movimentos.length} andamento(s) consultado(s) no DataJud!`);
+      alert(`✅ ${movimentos.length} andamento(s) consultado(s) no Escavador!`);
       refresh();
     } catch (err: any) {
       alert('Erro na consulta: ' + err.message);
@@ -619,7 +620,7 @@ export default function Processos() {
       <ModalBuscarNome
         isOpen={modalBuscarNome}
         onClose={() => setModalBuscarNome(false)}
-        onImportar={handleImportarDoDataJud}
+        onImportar={handleImportarDoEscavador}
       />
 
       {/* Stats */}
@@ -755,13 +756,13 @@ export default function Processos() {
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-1">
                           <button
-                            onClick={() => handleConsultarDataJud(processo)}
+                            onClick={() => handleConsultarEscavador(processo)}
                             disabled={isConsultando}
-                            title="Consultar DataJud"
+                            title="Consultar Escavador"
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-indigo-400 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
                           >
                             {isConsultando ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                            DataJud
+                            Escavador
                           </button>
                           <button
                             onClick={() => { setProcessoEdit(processo); setModalAberto(true); }}
