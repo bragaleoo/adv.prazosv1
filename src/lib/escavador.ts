@@ -120,7 +120,7 @@ export async function consultarProcesso(
 ): Promise<DataJudProcesso | null> {
   try {
     const cnjLimpo = numeroCnj.replace(/\D/g, '');
-    const { data, error } = await supabase.functions.invoke('escavador-webhook', {
+    const { data, error } = await supabase.functions.invoke('escavador-webhook/processo-cnj', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -158,7 +158,7 @@ export async function buscarPorNome(
   _size = 30
 ): Promise<DataJudProcesso[]> {
   try {
-    const { data, error } = await supabase.functions.invoke('escavador-webhook', {
+    const { data, error } = await supabase.functions.invoke('escavador-webhook/busca', {
       method: 'GET',
       queryParams: {
         q: nome
@@ -197,7 +197,7 @@ export async function buscarPorOAB(
   _size = 30
 ): Promise<DataJudProcesso[]> {
   try {
-    const { data, error } = await supabase.functions.invoke('escavador-webhook', {
+    const { data, error } = await supabase.functions.invoke('escavador-webhook/processos', {
       method: 'GET',
       queryParams: {
         oab_numero: numeroOAB.replace(/\D/g, ''),
