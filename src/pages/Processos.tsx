@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
+import { useAuth } from '../contexts/AuthContext';
 import { useProcessos } from '../hooks/useData';
 import { usePrazos } from '../hooks/useData';
 import { Processo } from '../types';
@@ -218,13 +219,23 @@ interface ModalBuscarNomeProps {
   isOpen: boolean;
   onClose: () => void;
   onImportar: (resultado: DataJudProcesso, tribunal: string) => Promise<void>;
+  profile: any;
 }
 
-function ModalBuscarNome({ isOpen, onClose, onImportar }: ModalBuscarNomeProps) {
+function ModalBuscarNome({ isOpen, onClose, onImportar, profile }: ModalBuscarNomeProps) {
   const [modo, setModo] = useState<ModoBusca>('oab');
   const [nome, setNome] = useState('');
   const [oabNumero, setOabNumero] = useState('');
   const [oabEstado, setOabEstado] = useState('SE');
+
+  useEffect(() => {
+    if (profile?.oab_numero) {
+      setOabNumero(profile.oab_numero);
+    }
+    if (profile?.oab_uf) {
+      setOabEstado(profile.oab_uf);
+    }
+  }, [profile]);
   const [tribunal, setTribunal] = useState('TJSE');
   const [buscando, setBuscando] = useState(false);
   const [resultados, setResultados] = useState<DataJudProcesso[]>([]);
@@ -322,48 +333,57 @@ function ModalBuscarNome({ isOpen, onClose, onImportar }: ModalBuscarNomeProps) 
           {/* Form */}
           <form onSubmit={handleBuscar} className="p-5 border-b border-white/5 flex-shrink-0 border-t border-white/5">
             {modo === 'oab' ? (
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Número OAB</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 12345"
-                    value={oabNumero}
-                    onChange={e => setOabNumero(e.target.value)}
-                    required
-                    className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-slate-600 text-sm focus:outline-none focus:border-indigo-500/50 font-mono"
-                  />
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Sua OAB</label>
+                    <input
+                      type="text"
+                      placeholder="Nenhuma OAB configurada"
+                      value={oabNumero}
+                      onChange={e => setOabNumero(e.target.value)}
+                      required
+                      disabled
+                      className="w-full bg-slate-800/30 border border-white/5 rounded-lg px-4 py-2.5 text-slate-400 placeholder-slate-600 text-sm cursor-not-allowed font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Seccional</label>
+                    <select
+                      value={oabEstado}
+                      onChange={e => setOabEstado(e.target.value)}
+                      disabled
+                      className="bg-slate-800/30 border border-white/5 rounded-lg px-3 py-2.5 text-slate-400 text-sm cursor-not-allowed appearance-none min-w-[80px]"
+                    >
+                      {ESTADOS_OAB.map(e => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tribunal</label>
+                    <select
+                      value={tribunal}
+                      onChange={e => setTribunal(e.target.value)}
+                      className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none appearance-none min-w-[90px]"
+                    >
+                      {Object.keys(TRIBUNAIS).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-semibold text-transparent mb-1.5">.</label>
+                    <button
+                      type="submit" disabled={buscando || !oabNumero}
+                      className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {buscando ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                      Buscar
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Seccional</label>
-                  <select
-                    value={oabEstado}
-                    onChange={e => setOabEstado(e.target.value)}
-                    className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none appearance-none min-w-[80px]"
-                  >
-                    {ESTADOS_OAB.map(e => <option key={e} value={e}>{e}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tribunal</label>
-                  <select
-                    value={tribunal}
-                    onChange={e => setTribunal(e.target.value)}
-                    className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none appearance-none min-w-[90px]"
-                  >
-                    {Object.keys(TRIBUNAIS).map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col">
-                  <label className="block text-xs font-semibold text-transparent mb-1.5">.</label>
-                  <button
-                    type="submit" disabled={buscando}
-                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {buscando ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                    Buscar
-                  </button>
-                </div>
+                {!oabNumero && (
+                  <p className="text-rose-400 text-xs font-semibold">
+                    ⚠️ Configure sua OAB e Seccional na página de Publicações antes de realizar a busca de processos.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="flex gap-3">
@@ -500,6 +520,7 @@ function ModalBuscarNome({ isOpen, onClose, onImportar }: ModalBuscarNomeProps) 
 // ─── Página Principal ─────────────────────────────────────────────────────────
 
 export default function Processos() {
+  const { user } = useAuth();
   const { processos, loading, error, refresh, deletarProcesso, criarProcesso } = useProcessos();
   const { clients } = usePrazos();
   const [busca, setBusca] = useState('');
@@ -508,6 +529,31 @@ export default function Processos() {
   const [modalBuscarNome, setModalBuscarNome] = useState(false);
   const [processoEdit, setProcessoEdit] = useState<Processo | null>(null);
   const [consultando, setConsultando] = useState<string | null>(null);
+  const [profile, setProfile] = useState<any>(null);
+
+  const fetchProfile = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        setProfile(data);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar perfil:', err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user, fetchProfile]);
 
   const handleImportarDoEscavador = async (proc: DataJudProcesso, tribunal: string) => {
     const partes = proc.partes?.map(p => p.nome).join(' × ') || proc.numeroProcesso;
@@ -621,6 +667,7 @@ export default function Processos() {
         isOpen={modalBuscarNome}
         onClose={() => setModalBuscarNome(false)}
         onImportar={handleImportarDoEscavador}
+        profile={profile}
       />
 
       {/* Stats */}
