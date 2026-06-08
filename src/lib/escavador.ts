@@ -150,7 +150,7 @@ export async function consultarProcesso(
     if (data?.error || data?.message === 'Processo não encontrado') return null;
 
     const processoRaw = data?.processo || data;
-    if (!processoRaw || !processoRaw.numero_cnj) return null;
+    if (!processoRaw || (!processoRaw.numero_cnj && !processoRaw.numero_novo)) return null;
 
     return mapearProcessoEscavador(processoRaw);
   } catch (err: any) {
