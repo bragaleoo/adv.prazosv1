@@ -264,6 +264,27 @@ serve(async (req) => {
         processo = data;
       }
 
+      // Se encontramos o processo e ele tem um ID, busca as movimentações completas dele
+      if (processo && processo.id) {
+        try {
+          const movsUrl = `https://api.escavador.com/api/v1/processos/${processo.id}/movimentacoes`;
+          const movsRes = await fetch(movsUrl, {
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${escavadorKey}`,
+            },
+          });
+          if (movsRes.ok) {
+            const movsData = await movsRes.json();
+            // Injeta as movimentações completas no objeto do processo
+            processo.movimentacoes = movsData.items || [];
+          }
+        } catch (movsErr) {
+          console.error('[escavador-webhook/processo-cnj] Erro ao buscar movimentações completas:', movsErr);
+        }
+      }
+
       return new Response(JSON.stringify({ processo }), {
         status: response.status,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

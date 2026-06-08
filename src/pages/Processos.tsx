@@ -558,7 +558,7 @@ export default function Processos() {
   const handleImportarDoEscavador = async (proc: DataJudProcesso, tribunal: string) => {
     const partes = proc.partes?.map(p => p.nome).join(' × ') || proc.numeroProcesso;
     try {
-      await criarProcesso({
+      const novoProcesso = await criarProcesso({
         numero_cnj: proc.numeroProcesso,
         titulo: partes,
         tribunal,
@@ -569,7 +569,12 @@ export default function Processos() {
         ultima_consulta_datajud: null,
         updated_at: new Date().toISOString(),
       } as any);
+      
       alert(`✅ Processo importado: ${formatarNumeroCNJ(proc.numeroProcesso)}`);
+      
+      if (novoProcesso) {
+        handleConsultarEscavador(novoProcesso);
+      }
     } catch (err: any) {
       if (err.message?.includes('duplicate') || err.message?.includes('unique')) {
         alert('Este processo já está cadastrado.');
