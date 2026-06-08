@@ -10,6 +10,19 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
+async function validarUsuario(req: Request, supabaseClient: any) {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    throw new Error('Cabeçalho de autorização ausente');
+  }
+  const token = authHeader.replace('Bearer ', '').trim();
+  const { data: { user }, error } = await supabaseClient.auth.getUser(token);
+  if (error || !user) {
+    throw new Error(error?.message || 'Token inválido ou sessão expirada');
+  }
+  return user;
+}
+
 serve(async (req) => {
   // Preflight CORS
   if (req.method === 'OPTIONS') {
@@ -177,14 +190,11 @@ serve(async (req) => {
       }
 
       // Validação obrigatória de segurança SEC-01
-      const authHeader = req.headers.get('Authorization');
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: CORS_HEADERS });
-      }
-
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
-      if (authError || !user) {
-        return new Response(JSON.stringify({ error: 'Token inválido ou expirado' }), { status: 401, headers: CORS_HEADERS });
+      try {
+        await validarUsuario(req, supabaseClient);
+      } catch (authErr: any) {
+        console.error('[escavador-webhook/processos] Falha na validação:', authErr.message);
+        return new Response(JSON.stringify({ error: 'Não autorizado', details: authErr.message }), { status: 401, headers: CORS_HEADERS });
       }
 
       const oabNumero = url.searchParams.get('oab_numero');
@@ -220,14 +230,11 @@ serve(async (req) => {
         return new Response('Método não permitido', { status: 405, headers: CORS_HEADERS });
       }
 
-      const authHeader = req.headers.get('Authorization');
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: CORS_HEADERS });
-      }
-
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
-      if (authError || !user) {
-        return new Response(JSON.stringify({ error: 'Token inválido ou expirado' }), { status: 401, headers: CORS_HEADERS });
+      try {
+        await validarUsuario(req, supabaseClient);
+      } catch (authErr: any) {
+        console.error('[escavador-webhook/processo-cnj] Falha na validação:', authErr.message);
+        return new Response(JSON.stringify({ error: 'Não autorizado', details: authErr.message }), { status: 401, headers: CORS_HEADERS });
       }
 
       const cnj = url.searchParams.get('numero');
@@ -260,14 +267,11 @@ serve(async (req) => {
         return new Response('Método não permitido', { status: 405, headers: CORS_HEADERS });
       }
 
-      const authHeader = req.headers.get('Authorization');
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: CORS_HEADERS });
-      }
-
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
-      if (authError || !user) {
-        return new Response(JSON.stringify({ error: 'Token inválido ou expirado' }), { status: 401, headers: CORS_HEADERS });
+      try {
+        await validarUsuario(req, supabaseClient);
+      } catch (authErr: any) {
+        console.error('[escavador-webhook/busca] Falha na validação:', authErr.message);
+        return new Response(JSON.stringify({ error: 'Não autorizado', details: authErr.message }), { status: 401, headers: CORS_HEADERS });
       }
 
       const q = url.searchParams.get('q');
@@ -301,15 +305,12 @@ serve(async (req) => {
       }
 
       // Verifica token do usuário para obter o user_id logado
-      const authHeader = req.headers.get('Authorization');
-      if (!authHeader) {
-        return new Response('Não autorizado', { status: 401, headers: CORS_HEADERS });
-      }
-
-      // Obtém usuário correspondente ao token
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
-      if (authError || !user) {
-        return new Response('Token inválido', { status: 401, headers: CORS_HEADERS });
+      let user;
+      try {
+        user = await validarUsuario(req, supabaseClient);
+      } catch (authErr: any) {
+        console.error('[escavador-webhook/monitorar] Falha na validação:', authErr.message);
+        return new Response(JSON.stringify({ error: 'Não autorizado', details: authErr.message }), { status: 401, headers: CORS_HEADERS });
       }
 
       const { oab_numero, oab_uf } = await req.json();
