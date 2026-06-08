@@ -36,6 +36,16 @@ serve(async (req) => {
         return new Response('Método não permitido', { status: 405, headers: CORS_HEADERS });
       }
 
+      // Validação opcional de segurança SEC-02
+      const callbackToken = Deno.env.get('ESCAVADOR_CALLBACK_TOKEN');
+      if (callbackToken) {
+        const authHeader = req.headers.get('Authorization');
+        if (!authHeader || authHeader !== `Bearer ${callbackToken}`) {
+          console.warn('[Webhook Escavador] Tentativa de chamada não autorizada ao webhook.');
+          return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: CORS_HEADERS });
+        }
+      }
+
       const payload = await req.json();
       console.log('[Webhook Escavador] Recebido:', JSON.stringify(payload));
 
@@ -125,6 +135,33 @@ serve(async (req) => {
         }
 
         console.log(`[Webhook Escavador] Publicação salva com sucesso para o usuário ${userId}`);
+
+        // Disparo para o n8n (Integração WhatsApp via uazap)
+        const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
+        if (n8nWebhookUrl) {
+          try {
+            console.log('[Webhook Escavador] Encaminhando publicação para o n8n...');
+            const response = await fetch(n8nWebhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event: 'nova_publicacao',
+                user_id: userId,
+                oab_numero: oabNumero,
+                oab_uf: oabUf,
+                nome_advogado: profile?.nome || profileByName?.nome || 'Advogado',
+                processo_numero: processoNumero,
+                data_publicacao: mov.data || new Date().toISOString(),
+                conteudo: mov.conteudo || mov.complemento || 'Sem conteúdo',
+                tipo: mov.tipo || 'Intimação',
+                tribunal: monitoramento?.processo?.origem || mov.diario_oficial || 'Diário Oficial'
+              })
+            });
+            console.log(`[Webhook Escavador] Envio para o n8n concluído com status: ${response.status}`);
+          } catch (n8nErr) {
+            console.error('[Webhook Escavador] Erro de rede ao enviar para o n8n:', n8nErr);
+          }
+        }
       }
 
       return new Response(JSON.stringify({ success: true }), {
@@ -134,11 +171,20 @@ serve(async (req) => {
     }
 
     // ─── 2. PROXY: BUSCAR PROCESSOS POR OAB (GET /processos) ──────────────────
-
-
     if (path.endsWith('/processos')) {
       if (req.method !== 'GET') {
         return new Response('Método não permitido', { status: 405, headers: CORS_HEADERS });
+      }
+
+      // Validação obrigatória de segurança SEC-01
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Token inválido ou expirado' }), { status: 401, headers: CORS_HEADERS });
       }
 
       const oabNumero = url.searchParams.get('oab_numero');
