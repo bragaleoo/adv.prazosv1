@@ -46,12 +46,6 @@ export default function Publicacoes() {
   const [filtro, setFiltro] = useState<FilterType>('nao_lidas');
   const [busca, setBusca] = useState('');
 
-  // Form states
-  const [oabNumero, setOabNumero] = useState('');
-  const [oabUf, setOabUf] = useState('SE');
-  const [savingOab, setSavingOab] = useState(false);
-  const [activatingMonitor, setActivatingMonitor] = useState(false);
-
   const fetchProfile = useCallback(async () => {
     if (!user) return;
     try {
@@ -64,8 +58,6 @@ export default function Publicacoes() {
       if (error) throw error;
       if (data) {
         setProfile(data);
-        setOabNumero(data.oab_numero || '');
-        setOabUf(data.oab_uf || 'SE');
       }
     } catch (err) {
       console.error('Erro ao buscar perfil:', err);
@@ -114,54 +106,6 @@ export default function Publicacoes() {
     }
     return true;
   });
-
-  const handleUpdateOab = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setSavingOab(true);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          oab_numero: oabNumero.trim(),
-          oab_uf: oabUf.toUpperCase()
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-      await fetchProfile();
-      alert('Configurações de OAB atualizadas com sucesso!');
-    } catch (err: any) {
-      alert('Erro ao salvar OAB: ' + err.message);
-    } finally {
-      setSavingOab(false);
-    }
-  };
-
-  const handleActivarMonitor = async () => {
-    if (!oabNumero) {
-      alert('Por favor, configure e salve seu número de OAB antes de ativar o monitoramento.');
-      return;
-    }
-    setActivatingMonitor(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('escavador-webhook/monitorar', {
-        body: {
-          oab_numero: oabNumero.trim(),
-          oab_uf: oabUf
-        }
-      });
-
-      if (error) throw error;
-      
-      alert('Monitoramento via Escavador ativado com sucesso! As publicações encontradas estão sendo importadas para o seu painel.');
-      await fetchPublicacoes();
-    } catch (err: any) {
-      alert('Erro ao ativar monitoramento no Escavador: ' + (err.message || err.error || err));
-    } finally {
-      setActivatingMonitor(false);
-    }
-  };
 
   const marcarComoLida = async (id: string) => {
     try {
@@ -221,112 +165,36 @@ export default function Publicacoes() {
           </div>
         </div>
 
-        {/* Painel de Configuração de OAB e Monitoramento */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Card de Configuração da OAB */}
-          <div className="lg:col-span-2 glass-panel rounded-3xl p-6 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <h2 className="text-white font-bold text-base flex items-center gap-2.5 mb-5 font-serif">
-              <FileSignature className="h-5 w-5 text-indigo-400" />
-              Configurar Registro OAB do Advogado
-            </h2>
-            
-            <form onSubmit={handleUpdateOab} className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                    Número OAB
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: 14699"
-                    value={oabNumero}
-                    onChange={e => setOabNumero(e.target.value)}
-                    className="w-full bg-slate-950/40 border border-white/5 rounded-xl px-4 py-2.5 text-white placeholder-slate-650 text-sm focus:outline-none focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/30 transition-all font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                    Seccional / UF
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={oabUf}
-                      onChange={e => setOabUf(e.target.value)}
-                      className="w-full bg-slate-950/40 border border-white/5 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500/40 transition-all appearance-none min-h-[44px]"
-                    >
-                      {ESTADOS_OAB.map(uf => (
-                        <option key={uf} value={uf} className="bg-slate-900 text-white">{uf}</option>
-                      ))}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">
-                      ▼
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-white/5">
-                <p className="text-xs text-slate-500 max-w-md leading-relaxed">
-                  💡 A OAB cadastrada será usada para a busca de processos ativos e também vinculará novas intimações enviadas automaticamente por webhook.
-                </p>
-                <button
-                  type="submit"
-                  disabled={savingOab}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 active:scale-[0.98] disabled:opacity-50 text-slate-950 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-indigo-400/20 shadow-md shadow-indigo-500/5 cursor-pointer"
-                >
-                  {savingOab ? <Loader2 className="h-4 w-4 animate-spin text-slate-950" /> : <Save className="h-4 w-4" />}
-                  Salvar OAB
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Card de Monitoramento do Escavador */}
-          <div className="glass-panel rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div>
-              <h2 className="text-white font-bold text-base flex items-center gap-2.5 mb-3.5 font-serif">
-                <AlertCircle className="h-5 w-5 text-amber-400" />
-                API do Escavador
-              </h2>
-              <p className="text-xs text-slate-400 leading-relaxed mb-5">
-                O Escavador monitora os Diários Oficiais de todo o Brasil e encaminha as novas publicações para o seu sistema em tempo real via webhook.
-              </p>
-              
-              {isOabConfigurada ? (
-                <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-xs text-emerald-400 font-sans flex items-start gap-2.5 mb-5 shadow-inner">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
-                  <div>
-                    <span className="font-semibold block mb-0.5">OAB Configurada</span>
-                    <span className="text-slate-400 text-[11px] font-mono">{profile?.oab_numero}/{profile?.oab_uf}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-xl text-xs text-amber-400 font-sans flex items-start gap-2.5 mb-5 shadow-inner">
-                  <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
-                  <div>
-                    <span className="font-semibold block mb-0.5">Ação Necessária</span>
-                    <span className="text-slate-400 text-[11px]">Salve a OAB ao lado para liberar o monitoramento automático.</span>
-                  </div>
-                </div>
-              )}
+        {/* Painel do Advogado Monitorado */}
+        <div className="glass-panel rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <div className="flex items-center gap-4 z-10">
+            <div className="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/10 text-indigo-400">
+              <Scale className="h-6 w-6" />
             </div>
-
-            <button
-              onClick={handleActivarMonitor}
-              disabled={activatingMonitor || !isOabConfigurada}
-              className="w-full py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 active:scale-[0.98] disabled:from-slate-900 disabled:to-slate-900 disabled:text-slate-600 disabled:opacity-55 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 transition-all border border-indigo-400/20 shadow-lg shadow-indigo-500/10 cursor-pointer"
-            >
-              {activatingMonitor ? (
-                <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
-              ) : (
-                <FileSignature className="h-4 w-4" />
-              )}
-              Ativar Monitoramento da OAB
-            </button>
+            <div>
+              <h2 className="text-white font-bold text-base font-serif">
+                {profile?.nome || 'Carregando Advogado...'}
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Inscrição OAB ativa: {profile?.oab_numero && profile?.oab_uf ? (
+                  <span className="font-mono text-indigo-450 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">{profile.oab_numero}/{profile.oab_uf}</span>
+                ) : (
+                  <span className="text-amber-400 font-semibold">Nenhuma OAB vinculada ao perfil</span>
+                )}
+              </p>
+            </div>
           </div>
+          
+          {isOabConfigurada && (
+            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-xs font-semibold self-start sm:self-center z-10 shadow-sm shadow-emerald-500/5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Monitoramento Diário Ativo</span>
+            </div>
+          )}
         </div>
 
         {/* Dashboard Cards (Estética de Contadores) */}
