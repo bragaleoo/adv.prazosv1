@@ -48,6 +48,9 @@ export const TRIBUNAIS: Record<string, TribunalAlias> = {
   TST: 'api_publica_tst',
 };
 
+// URL Base da Edge Function remota no Supabase
+const EDGE_FUNCTION_URL = 'https://ngxordzdeigzrxocwjfc.supabase.co/functions/v1/escavador-webhook';
+
 /**
  * Traduz o formato de processo retornado do Escavador para o formato legível no frontend
  */
@@ -116,38 +119,34 @@ function mapearProcessoEscavador(esc: any): DataJudProcesso {
  */
 export async function consultarProcesso(
   numeroCnj: string,
-  _tribunalAlias?: TribunalAlias // Ignorado no Escavador pois a busca é nacional
+  _tribunalAlias?: TribunalAlias // Ignorado
 ): Promise<DataJudProcesso | null> {
   try {
     const cnjLimpo = numeroCnj.replace(/\D/g, '');
     const sessionRes = await supabase.auth.getSession();
     const token = sessionRes.data.session?.access_token;
 
-    const { data, error } = await supabase.functions.invoke('escavador-webhook/processo-cnj', {
+    const response = await fetch(`${EDGE_FUNCTION_URL}/processo-cnj?numero=${cnjLimpo}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token || ''}`
+        Authorization: `Bearer ${token || ''}`,
       },
-      // Passamos a rota /processo-cnj usando queryParams do supabase-js
-      // que são repassados ao endpoint da Edge Function
-      queryParams: {
-        numero: cnjLimpo
-      }
     });
 
-    if (error) throw new Error(`Erro na chamada da Edge Function: ${error.message}`);
-    
-    // Roteador de erros da API do Escavador
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.details || errData.error || `Erro HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
     if (data?.error || data?.message === 'Processo não encontrado') return null;
 
-    // A Edge Function chama a rota que mapeia para o endpoint do Escavador /processos/numero/{cnj}
-    // O retorno pode vir direto do Escavador ou em formato aninhado
     const processoRaw = data?.processo || data;
     if (!processoRaw || !processoRaw.numero_cnj) return null;
 
     return mapearProcessoEscavador(processoRaw);
-  } catch (err) {
+  } catch (err: any) {
     console.error('[Escavador Adapter] Erro na consulta de processo:', err);
     throw err;
   }
@@ -165,25 +164,25 @@ export async function buscarPorNome(
     const sessionRes = await supabase.auth.getSession();
     const token = sessionRes.data.session?.access_token;
 
-    const { data, error } = await supabase.functions.invoke('escavador-webhook/busca', {
+    const response = await fetch(`${EDGE_FUNCTION_URL}/busca?q=${encodeURIComponent(nome)}`, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token || ''}`
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token || ''}`,
       },
-      queryParams: {
-        q: nome
-      }
     });
 
-    if (error) throw new Error(`Erro na busca por nome: ${error.message}`);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.details || errData.error || `Erro HTTP ${response.status}`);
+    }
 
-    // O retorno do Escavador para /busca?q=... contém os processos em data.items ou data.resultado.items
+    const data = await response.json();
     const rawItems = data?.items || data?.resultado?.items || (Array.isArray(data) ? data : []);
     
     return rawItems
       .filter((item: any) => item !== null && (item.numero_cnj || item.numero))
       .map((item: any) => {
-        // Normaliza campos do escavador que às vezes variam entre busca geral e busca específica
         const normalized = {
           ...item,
           numero_cnj: item.numero_cnj || item.numero,
@@ -191,7 +190,7 @@ export async function buscarPorNome(
         };
         return mapearProcessoEscavador(normalized);
       });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[Escavador Adapter] Erro na busca por nome:', err);
     throw err;
   }
@@ -210,20 +209,20 @@ export async function buscarPorOAB(
     const sessionRes = await supabase.auth.getSession();
     const token = sessionRes.data.session?.access_token;
 
-    const { data, error } = await supabase.functions.invoke('escavador-webhook/processos', {
+    const response = await fetch(`${EDGE_FUNCTION_URL}/processos?oab_numero=${numeroOAB.replace(/\D/g, '')}&oab_uf=${estadoOAB.toUpperCase()}`, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token || ''}`
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token || ''}`,
       },
-      queryParams: {
-        oab_numero: numeroOAB.replace(/\D/g, ''),
-        oab_uf: estadoOAB.toUpperCase()
-      }
     });
 
-    if (error) throw new Error(`Erro na busca por OAB: ${error.message}`);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.details || errData.error || `Erro HTTP ${response.status}`);
+    }
 
-    // O retorno de /advogado/processos do Escavador está em data.items ou data.processos
+    const data = await response.json();
     const rawItems = data?.items || data?.processos || (Array.isArray(data) ? data : []);
 
     return rawItems
@@ -236,7 +235,7 @@ export async function buscarPorOAB(
         };
         return mapearProcessoEscavador(normalized);
       });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[Escavador Adapter] Erro na busca por OAB:', err);
     throw err;
   }
