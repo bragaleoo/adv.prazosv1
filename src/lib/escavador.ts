@@ -120,10 +120,14 @@ export async function consultarProcesso(
 ): Promise<DataJudProcesso | null> {
   try {
     const cnjLimpo = numeroCnj.replace(/\D/g, '');
+    const sessionRes = await supabase.auth.getSession();
+    const token = sessionRes.data.session?.access_token;
+
     const { data, error } = await supabase.functions.invoke('escavador-webhook/processo-cnj', {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token || ''}`
       },
       // Passamos a rota /processo-cnj usando queryParams do supabase-js
       // que são repassados ao endpoint da Edge Function
@@ -158,8 +162,14 @@ export async function buscarPorNome(
   _size = 30
 ): Promise<DataJudProcesso[]> {
   try {
+    const sessionRes = await supabase.auth.getSession();
+    const token = sessionRes.data.session?.access_token;
+
     const { data, error } = await supabase.functions.invoke('escavador-webhook/busca', {
       method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token || ''}`
+      },
       queryParams: {
         q: nome
       }
@@ -197,8 +207,14 @@ export async function buscarPorOAB(
   _size = 30
 ): Promise<DataJudProcesso[]> {
   try {
+    const sessionRes = await supabase.auth.getSession();
+    const token = sessionRes.data.session?.access_token;
+
     const { data, error } = await supabase.functions.invoke('escavador-webhook/processos', {
       method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token || ''}`
+      },
       queryParams: {
         oab_numero: numeroOAB.replace(/\D/g, ''),
         oab_uf: estadoOAB.toUpperCase()
