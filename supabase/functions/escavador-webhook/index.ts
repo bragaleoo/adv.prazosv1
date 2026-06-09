@@ -245,7 +245,7 @@ serve(async (req) => {
       let allItems: any[] = [];
       let nextPageUrl: string | null = `https://api.escavador.com/api/v2/advogado/processos?oab_numero=${oabNumero}&oab_estado=${oabUf.toUpperCase()}&oab_tipo=ADVOGADO`;
       let pagesFetched = 0;
-      const maxPages = 5;
+      const maxPages = 25;
       let lastStatus = 200;
       let lastErrorData = null;
 
