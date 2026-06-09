@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   BookOpen, Search, Filter, Calendar as CalendarIcon, 
   ChevronRight, CheckCircle2, Clock, AlertCircle, FileText, 
-  Scale, FileSignature, Save, ShieldAlert, Loader2
+  Scale, FileSignature, Save, ShieldAlert, Loader2, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -45,6 +45,7 @@ export default function Publicacoes() {
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<FilterType>('nao_lidas');
   const [busca, setBusca] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     if (!user) return;
@@ -124,6 +125,32 @@ export default function Publicacoes() {
     }
   };
 
+  const handleSync = async () => {
+    try {
+      setIsSyncing(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão expirada. Faça login novamente.');
+
+      const response = await fetch('https://ngxordzdeigzrxocwjfc.supabase.co/functions/v1/escavador-webhook/sync-diario', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Erro desconhecido na sincronização');
+
+      alert(`Sincronização concluída! ${result.count} nova(s) publicação(ões) encontrada(s).`);
+      await fetchPublicacoes(); // recarrega a tela
+    } catch (err: any) {
+      alert('Erro na sincronização: ' + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const isOabConfigurada = profile?.oab_numero && profile?.oab_uf;
 
   return (
@@ -142,6 +169,19 @@ export default function Publicacoes() {
           </div>
           
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleSync}
+              disabled={isSyncing || !isOabConfigurada}
+              title={!isOabConfigurada ? 'Configure sua OAB primeiro' : 'Buscar atualizações no Escavador'}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-full text-xs font-bold transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+            >
+              {isSyncing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Sincronizar
+            </button>
             <div className={cn(
               "flex items-center gap-2 px-3.5 py-2 border rounded-full transition-all text-xs font-semibold backdrop-blur-md shadow-sm",
               isOabConfigurada 

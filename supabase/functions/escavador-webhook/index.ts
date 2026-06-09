@@ -450,6 +450,103 @@ serve(async (req) => {
       });
     }
 
+    // ─── 4. PROXY: SINCRONIZAÇÃO FORÇADA DE DIÁRIO (POST /sync-diario) ─────────
+    if (path.endsWith('/sync-diario')) {
+      if (req.method !== 'POST') {
+        return new Response('Método não permitido', { status: 405, headers: CORS_HEADERS });
+      }
+
+      let user;
+      try {
+        user = await validarUsuario(req, supabaseClient);
+      } catch (authErr: any) {
+        return new Response(JSON.stringify({ error: 'Não autorizado', details: authErr.message }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      // Busca o perfil do usuário para pegar a OAB
+      const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('oab_numero, oab_uf, nome')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile || !profile.oab_numero || !profile.oab_uf) {
+        return new Response(JSON.stringify({ error: 'OAB não configurada no perfil' }), { status: 400, headers: CORS_HEADERS });
+      }
+
+      const term = `${profile.oab_numero}/${profile.oab_uf.toUpperCase()}`;
+      const normalizedTerm = term.replace(/\./g, '').toUpperCase();
+      console.log(`[Sync Diario] Iniciando sincronização forçada para OAB: ${term}`);
+
+      // 1. Busca o ID do monitoramento ativo
+      const listRes = await fetch('https://api.escavador.com/api/v2/monitoramentos/novos-processos', {
+        method: 'GET',
+        headers: { Accept: 'application/json', Authorization: `Bearer ${escavadorKey}` },
+      });
+
+      let monitoramentoId = null;
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const items = listData.items || [];
+        const matchedItem = items.find((item: any) => 
+          item.termo.replace(/\./g, '').toUpperCase() === normalizedTerm
+        );
+        if (matchedItem) monitoramentoId = matchedItem.id;
+      }
+
+      if (!monitoramentoId) {
+        return new Response(JSON.stringify({ error: 'Nenhum monitoramento ativo encontrado. A API não está monitorando sua OAB no momento.' }), { status: 404, headers: CORS_HEADERS });
+      }
+
+      // 2. Busca os resultados mais recentes
+      const resultsRes = await fetch(`https://api.escavador.com/api/v2/monitoramentos/novos-processos/${monitoramentoId}/resultados`, {
+        method: 'GET',
+        headers: { Accept: 'application/json', Authorization: `Bearer ${escavadorKey}` },
+      });
+
+      if (!resultsRes.ok) {
+        return new Response(JSON.stringify({ error: 'Erro ao buscar resultados no Escavador' }), { status: resultsRes.status, headers: CORS_HEADERS });
+      }
+
+      const resultsData = await resultsRes.json();
+      const items = resultsData.items || [];
+      let inseridos = 0;
+
+      // 3. Verifica e insere as novas publicações
+      for (const item of items) {
+        const dataPub = item.data_inicio || new Date().toISOString();
+        const processoNum = item.numero_cnj || '';
+        const conteudo = item.match || 'Publicação importada';
+
+        // Verifica se já existe para evitar duplicidade
+        const { data: existing } = await supabaseClient
+          .from('publicacoes')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('conteudo', conteudo)
+          .maybeSingle();
+
+        if (!existing) {
+          const { error: insErr } = await supabaseClient
+            .from('publicacoes')
+            .insert({
+              user_id: user.id,
+              data_publicacao: dataPub,
+              conteudo: conteudo,
+              processo_numero: processoNum,
+              lido: false,
+              tipo: 'Intimação',
+              tribunal: item.tribunal || 'Diário Oficial',
+            });
+          
+          if (!insErr) inseridos++;
+        }
+      }
+
+      console.log(`[Sync Diario] Sincronização concluída. ${inseridos} novas publicações inseridas.`);
+      return new Response(JSON.stringify({ success: true, count: inseridos }), { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    }
+
     return new Response('Rota não encontrada', { status: 404, headers: CORS_HEADERS });
 
   } catch (err: any) {
