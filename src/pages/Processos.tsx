@@ -246,7 +246,7 @@ type ModoBusca = 'nome' | 'oab';
 interface ModalBuscarNomeProps {
   isOpen: boolean;
   onClose: () => void;
-  onImportar: (resultado: DataJudProcesso, tribunal: string) => Promise<void>;
+  onImportar: (resultado: DataJudProcesso, tribunal: string, silencioso?: boolean) => Promise<void>;
   onImportarLote: (resultados: DataJudProcesso[], tribunal: string) => Promise<void>;
   profile: any;
   processosCnjs: Set<string>; // CNJs já cadastrados no banco
@@ -268,6 +268,10 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, onImportarLote, profile,
   // Estado de importação por processo
   const [statusImport, setStatusImport] = useState<Record<string, 'importing' | 'success' | 'error' | 'duplicate'>>({});
   const [importandoLote, setImportandoLote] = useState(false);
+
+  // Progresso do lote
+  const [totalParaImportar, setTotalParaImportar] = useState(0);
+  const [importadosCount, setImportadosCount] = useState(0);
 
   useEffect(() => {
     if (profile?.oab_numero) setOabNumero(profile.oab_numero);
@@ -321,16 +325,21 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, onImportarLote, profile,
 
   const importarLista = async (lista: DataJudProcesso[]) => {
     setImportandoLote(true);
-    for (const proc of lista) {
+    setTotalParaImportar(lista.length);
+    setImportadosCount(0);
+
+    for (let i = 0; i < lista.length; i++) {
+      const proc = lista[i];
       setStatusImport(prev => ({ ...prev, [proc.numeroProcesso]: 'importing' }));
       try {
-        await onImportar(proc, tribunal);
+        await onImportar(proc, tribunal, true);
         setStatusImport(prev => ({ ...prev, [proc.numeroProcesso]: 'success' }));
         setSelecionados(prev => { const n = new Set(prev); n.delete(proc.numeroProcesso); return n; });
       } catch (err: any) {
         const isDuplicate = err.message?.includes('duplicate') || err.message?.includes('unique') || err.message?.includes('já está cadastrado');
         setStatusImport(prev => ({ ...prev, [proc.numeroProcesso]: isDuplicate ? 'duplicate' : 'error' }));
       }
+      setImportadosCount(i + 1);
     }
     setImportandoLote(false);
   };
@@ -350,6 +359,7 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, onImportarLote, profile,
   };
 
   const handleClose = () => {
+    if (importandoLote) return;
     const temSucesso = Object.values(statusImport).some(s => s === 'success');
     onClose();
     if (temSucesso) navigate('/andamentos');
@@ -374,9 +384,32 @@ function ModalBuscarNome({ isOpen, onClose, onImportar, onImportarLote, profile,
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="bg-[#0F172A] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]"
+          className="relative bg-[#0F172A] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]"
           onClick={e => e.stopPropagation()}
         >
+          {importandoLote && (
+            <div className="absolute inset-0 bg-[#0F172A]/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 rounded-2xl">
+              <div className="bg-[#1E293B] border border-white/10 rounded-2xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center space-y-4">
+                <Loader2 size={36} className="animate-spin text-indigo-400" />
+                <div>
+                  <h3 className="text-white font-bold text-base">Importando Processos</h3>
+                  <p className="text-slate-400 text-xs mt-1">Buscando andamentos no Escavador...</p>
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-white/5">
+                  <div 
+                    className="bg-indigo-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(importadosCount / totalParaImportar) * 100}%` }}
+                  />
+                </div>
+                
+                <span className="text-xs font-mono text-indigo-300 font-semibold">
+                  {importadosCount} de {totalParaImportar} concluído{totalParaImportar !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+          )}
           {/* Header */}
           <div className="p-6 border-b border-white/5 flex items-center justify-between flex-shrink-0">
             <div>
@@ -713,7 +746,7 @@ export default function Processos() {
   // Conjunto de CNJs já cadastrados — usado pelo modal de busca para marcar duplicatas
   const processosCnjs = new Set(processos.map(p => p.numero_cnj));
 
-  const handleImportarDoEscavador = async (proc: DataJudProcesso, tribunal: string) => {
+  const handleImportarDoEscavador = async (proc: DataJudProcesso, tribunal: string, silencioso = false) => {
     const partes = proc.partes?.map(p => p.nome).join(' × ') || proc.numeroProcesso;
 
     // Verifica duplicata antes de tentar inserir
@@ -734,8 +767,8 @@ export default function Processos() {
     } as any);
 
     if (novoProcesso) {
-      // Sincroniza andamentos em background (não bloqueia o loop de lote)
-      handleConsultarEscavador(novoProcesso).catch(console.error);
+      // Sincroniza andamentos
+      await handleConsultarEscavador(novoProcesso, silencioso);
       refresh();
     }
   };
@@ -749,12 +782,12 @@ export default function Processos() {
     return matchBusca && matchStatus;
   });
 
-  const handleConsultarEscavador = async (processo: Processo) => {
+  const handleConsultarEscavador = async (processo: Processo, silencioso = false) => {
     setConsultando(processo.id);
     try {
       const resultado = await consultarProcesso(processo.numero_cnj);
       if (!resultado) {
-        alert('Processo não encontrado no Escavador.');
+        if (!silencioso) alert('Processo não encontrado no Escavador.');
         return;
       }
 
@@ -811,10 +844,16 @@ export default function Processos() {
         .update({ ultima_consulta_datajud: new Date().toISOString() })
         .eq('id', processo.id);
 
-      alert(`✅ ${movimentos.length} andamento(s) consultado(s) no Escavador!`);
+      if (!silencioso) {
+        alert(`✅ ${movimentos.length} andamento(s) consultado(s) no Escavador!`);
+      }
       refresh();
     } catch (err: any) {
-      alert('Erro na consulta: ' + err.message);
+      if (!silencioso) {
+        alert('Erro na consulta: ' + err.message);
+      } else {
+        console.error('Erro na consulta silenciosa:', err);
+      }
     } finally {
       setConsultando(null);
     }
@@ -847,7 +886,7 @@ export default function Processos() {
         onClose={() => setModalBuscarNome(false)}
         onImportar={handleImportarDoEscavador}
         onImportarLote={async (lista, tribunal) => {
-          for (const proc of lista) await handleImportarDoEscavador(proc, tribunal);
+          for (const proc of lista) await handleImportarDoEscavador(proc, tribunal, true);
         }}
         profile={profile}
         processosCnjs={processosCnjs}
