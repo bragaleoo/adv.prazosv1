@@ -23,6 +23,26 @@ async function validarUsuario(req: Request, supabaseClient: any) {
   return user;
 }
 
+function parseAparicao(item: any) {
+  const dataPub = item.data_inicio || item.data_aparicao || item.data || item.data_publicacao || new Date().toISOString();
+  const conteudo = item.match || item.snippet || item.texto || item.conteudo || item.excerpt || 'Publicação importada';
+  
+  let processoNum = item.numero_cnj || item.processo_numero || item.numero_processo || '';
+  if (!processoNum && conteudo) {
+    const cnjMatch = conteudo.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/);
+    if (cnjMatch) processoNum = cnjMatch[0];
+  }
+  
+  const tribunal = item.tribunal || item.diario || item.diario_oficial || item.fonte || (item.origem?.nome) || 'Diário Oficial';
+  
+  return {
+    dataPub,
+    conteudo,
+    processoNum,
+    tribunal
+  };
+}
+
 serve(async (req) => {
   // Preflight CORS
   if (req.method === 'OPTIONS') {
@@ -81,37 +101,48 @@ serve(async (req) => {
           return new Response(JSON.stringify({ message: 'Dados inválidos' }), { status: 400 });
         }
 
-        // Tenta mapear o termo (OAB ou Nome) para um perfil de usuário
-        let userId: string | null = null;
-        
+        // Tenta mapear o termo (OAB ou Nome) para perfis de usuários
+        const userIds: string[] = [];
+        const profilesMap: Record<string, any> = {};
+
         // Match no formato "14699/SE" ou "14.699/SE"
         const oabMatch = term.match(/(\d+(?:\.\d+)?)\/([a-zA-Z]{2})/i);
+        let oabNumero = '';
+        let oabUf = '';
         if (oabMatch) {
-          const oabNumero = oabMatch[1].replace(/\./g, '');
-          const oabUf = oabMatch[2].toUpperCase();
+          oabNumero = oabMatch[1].replace(/\./g, '');
+          oabUf = oabMatch[2].toUpperCase();
 
-          const { data: profile } = await supabaseClient
+          const { data: matchedProfiles } = await supabaseClient
             .from('profiles')
-            .select('id')
+            .select('*')
             .eq('oab_numero', oabNumero)
-            .eq('oab_uf', oabUf)
-            .maybeSingle();
+            .eq('oab_uf', oabUf);
 
-          if (profile) userId = profile.id;
+          if (matchedProfiles && matchedProfiles.length > 0) {
+            matchedProfiles.forEach((p: any) => {
+              userIds.push(p.id);
+              profilesMap[p.id] = p;
+            });
+          }
         }
 
         // Se não mapeou por OAB, tenta por nome
-        if (!userId) {
-          const { data: profileByName } = await supabaseClient
+        if (userIds.length === 0) {
+          const { data: matchedProfilesByName } = await supabaseClient
             .from('profiles')
-            .select('id')
-            .ilike('nome', `%${term}%`)
-            .maybeSingle();
+            .select('*')
+            .ilike('nome', `%${term}%`);
 
-          if (profileByName) userId = profileByName.id;
+          if (matchedProfilesByName && matchedProfilesByName.length > 0) {
+            matchedProfilesByName.forEach((p: any) => {
+              userIds.push(p.id);
+              profilesMap[p.id] = p;
+            });
+          }
         }
 
-        if (!userId) {
+        if (userIds.length === 0) {
           console.warn(`[Webhook Escavador] Nenhum perfil encontrado para o termo monitorado: "${term}"`);
           return new Response(JSON.stringify({ message: 'Perfil não encontrado' }), {
             status: 200,
@@ -126,53 +157,57 @@ serve(async (req) => {
           if (cnjMatch) processoNumero = cnjMatch[0];
         }
 
-        // Insere a publicação no banco
+        // Insere as publicações no banco
+        const inserts = userIds.map(uid => ({
+          user_id: uid,
+          data_publicacao: mov.data || new Date().toISOString(),
+          conteudo: mov.conteudo || mov.complemento || 'Sem conteúdo',
+          processo_numero: processoNumero,
+          lido: false,
+          tipo: mov.tipo || 'Intimação',
+          tribunal: monitoramento?.processo?.origem || mov.diario_oficial || 'Diário Oficial',
+        }));
+
         const { error: insertError } = await supabaseClient
           .from('publicacoes')
-          .insert({
-            user_id: userId,
-            data_publicacao: mov.data || new Date().toISOString(),
-            conteudo: mov.conteudo || mov.complemento || 'Sem conteúdo',
-            processo_numero: processoNumero,
-            lido: false,
-            tipo: mov.tipo || 'Intimação',
-            tribunal: monitoramento?.processo?.origem || mov.diario_oficial || 'Diário Oficial',
-          });
+          .insert(inserts);
 
         if (insertError) {
-          console.error('[Webhook Escavador] Erro ao salvar publicação:', insertError);
+          console.error('[Webhook Escavador] Erro ao salvar publicações:', insertError);
           return new Response(JSON.stringify({ error: insertError.message }), {
             status: 500,
             headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
           });
         }
 
-        console.log(`[Webhook Escavador] Publicação salva com sucesso para o usuário ${userId}`);
+        console.log(`[Webhook Escavador] Publicações salvas com sucesso para os usuários: ${userIds.join(', ')}`);
 
         // Disparo para o n8n (Integração WhatsApp via uazap)
         const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
         if (n8nWebhookUrl) {
-          try {
-            console.log('[Webhook Escavador] Encaminhando publicação para o n8n...');
-            const response = await fetch(n8nWebhookUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                event: 'nova_publicacao',
-                user_id: userId,
-                oab_numero: oabNumero,
-                oab_uf: oabUf,
-                nome_advogado: profile?.nome || profileByName?.nome || 'Advogado',
-                processo_numero: processoNumero,
-                data_publicacao: mov.data || new Date().toISOString(),
-                conteudo: mov.conteudo || mov.complemento || 'Sem conteúdo',
-                tipo: mov.tipo || 'Intimação',
-                tribunal: monitoramento?.processo?.origem || mov.diario_oficial || 'Diário Oficial'
-              })
-            });
-            console.log(`[Webhook Escavador] Envio para o n8n concluído com status: ${response.status}`);
-          } catch (n8nErr) {
-            console.error('[Webhook Escavador] Erro de rede ao enviar para o n8n:', n8nErr);
+          for (const uid of userIds) {
+            const profile = profilesMap[uid];
+            try {
+              console.log(`[Webhook Escavador] Encaminhando publicação do usuário ${uid} para o n8n...`);
+              await fetch(n8nWebhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  event: 'nova_publicacao',
+                  user_id: uid,
+                  oab_numero: oabNumero,
+                  oab_uf: oabUf,
+                  nome_advogado: profile?.nome || 'Advogado',
+                  processo_numero: processoNumero,
+                  data_publicacao: mov.data || new Date().toISOString(),
+                  conteudo: mov.conteudo || mov.complemento || 'Sem conteúdo',
+                  tipo: mov.tipo || 'Intimação',
+                  tribunal: monitoramento?.processo?.origem || mov.diario_oficial || 'Diário Oficial'
+                })
+              });
+            } catch (n8nErr) {
+              console.error(`[Webhook Escavador] Erro de rede ao enviar para o n8n para o usuário ${uid}:`, n8nErr);
+            }
           }
         }
       }
@@ -354,15 +389,19 @@ serve(async (req) => {
       const term = `${oab_numero}/${oab_uf.toUpperCase()}`;
       console.log(`[Escavador] Criando monitoramento para o termo: "${term}" para o usuário: ${user.id}`);
 
-      // 1. Cadastra monitoramento no Escavador
-      const registerRes = await fetch('https://api.escavador.com/api/v2/monitoramentos/novos-processos', {
+      // 1. Cadastra monitoramento no Escavador via API V1 (termo genérico em todos diários)
+      const registerRes = await fetch('https://api.escavador.com/api/v1/monitoramentos', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
           Authorization: `Bearer ${escavadorKey}`,
         },
-        body: JSON.stringify({ termo: term }),
+        body: JSON.stringify({
+          tipo: 'termo',
+          termo: term,
+          monitorar_em_todos_diarios: true
+        }),
       });
 
       let monitoramentoId: number | null = null;
@@ -370,15 +409,15 @@ serve(async (req) => {
 
       if (registerRes.ok) {
         registerData = await registerRes.json();
-        monitoramentoId = registerData.id;
+        monitoramentoId = registerData.id || registerData.monitoramento?.id || null;
       } else {
         const errorData = await registerRes.json();
-        const errorMsg = errorData.error || errorData.message || '';
+        const errorMsg = errorData.error || errorData.message || (Array.isArray(errorData.errors) ? errorData.errors.join(', ') : '') || '';
         
-        if (registerRes.status === 422 && errorMsg.includes('já monitora este termo')) {
+        if ((registerRes.status === 422 && errorMsg.includes('já monitora este termo')) || errorMsg.includes('já está sendo monitorado')) {
           console.log(`[Escavador] O termo "${term}" já está sendo monitorado. Buscando ID existente...`);
           
-          const listRes = await fetch('https://api.escavador.com/api/v2/monitoramentos/novos-processos', {
+          const listRes = await fetch('https://api.escavador.com/api/v1/monitoramentos', {
             method: 'GET',
             headers: {
               Accept: 'application/json',
@@ -397,14 +436,14 @@ serve(async (req) => {
 
             if (matchedItem) {
               monitoramentoId = matchedItem.id;
-              registerData = matchedItem; // mock registerData to return standard response
+              registerData = matchedItem;
               console.log(`[Escavador] ID de monitoramento existente encontrado: ${monitoramentoId}`);
             }
           }
         }
 
         if (!monitoramentoId) {
-          const errorMsgFinal = errorData.error || errorData.message || (errorData.errors ? JSON.stringify(errorData.errors) : null) || JSON.stringify(errorData);
+          const errorMsgFinal = errorMsg || (errorData.errors ? JSON.stringify(errorData.errors) : null) || JSON.stringify(errorData);
           return new Response(JSON.stringify({ error: errorMsgFinal }), {
             status: registerRes.status,
             headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -412,8 +451,8 @@ serve(async (req) => {
         }
       }
 
-      // 2. Busca resultados históricos imediatamente
-      const resultsRes = await fetch(`https://api.escavador.com/api/v2/monitoramentos/novos-processos/${monitoramentoId}/resultados`, {
+      // 2. Busca resultados históricos imediatamente usando o feed de aparições
+      const resultsRes = await fetch(`https://api.escavador.com/api/v2/monitoramentos/${monitoramentoId}/aparicoes`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -425,20 +464,21 @@ serve(async (req) => {
         const resultsData = await resultsRes.json();
         const items = resultsData.items || [];
 
-        console.log(`[Escavador] Encontrados ${items.length} resultados iniciais para importação.`);
+        console.log(`[Escavador] Encontrados ${items.length} resultados iniciais (aparicoes) para importação.`);
 
         // Importa resultados históricos para a tabela publicacoes
         for (const item of items) {
+          const parsed = parseAparicao(item);
           const { error: insErr } = await supabaseClient
             .from('publicacoes')
             .insert({
               user_id: user.id,
-              data_publicacao: item.data_inicio || new Date().toISOString(),
-              conteudo: item.match || 'Publicação importada',
-              processo_numero: item.numero_cnj || '',
+              data_publicacao: parsed.dataPub,
+              conteudo: parsed.conteudo,
+              processo_numero: parsed.processoNum,
               lido: false,
               tipo: 'Intimação',
-              tribunal: item.tribunal || 'Diário Oficial',
+              tribunal: parsed.tribunal,
             });
           if (insErr) console.error('[Escavador] Erro ao importar publicação inicial:', insErr);
         }
@@ -478,8 +518,8 @@ serve(async (req) => {
       const normalizedTerm = term.replace(/\./g, '').toUpperCase();
       console.log(`[Sync Diario] Iniciando sincronização forçada para OAB: ${term}`);
 
-      // 1. Busca o ID do monitoramento ativo
-      const listRes = await fetch('https://api.escavador.com/api/v2/monitoramentos/novos-processos', {
+      // 1. Busca o ID do monitoramento ativo (lista genérica)
+      const listRes = await fetch('https://api.escavador.com/api/v1/monitoramentos', {
         method: 'GET',
         headers: { Accept: 'application/json', Authorization: `Bearer ${escavadorKey}` },
       });
@@ -498,8 +538,8 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Nenhum monitoramento ativo encontrado. A API não está monitorando sua OAB no momento.' }), { status: 404, headers: CORS_HEADERS });
       }
 
-      // 2. Busca os resultados mais recentes
-      const resultsRes = await fetch(`https://api.escavador.com/api/v2/monitoramentos/novos-processos/${monitoramentoId}/resultados`, {
+      // 2. Busca os resultados mais recentes usando o feed de aparições
+      const resultsRes = await fetch(`https://api.escavador.com/api/v2/monitoramentos/${monitoramentoId}/aparicoes`, {
         method: 'GET',
         headers: { Accept: 'application/json', Authorization: `Bearer ${escavadorKey}` },
       });
@@ -514,16 +554,14 @@ serve(async (req) => {
 
       // 3. Verifica e insere as novas publicações
       for (const item of items) {
-        const dataPub = item.data_inicio || new Date().toISOString();
-        const processoNum = item.numero_cnj || '';
-        const conteudo = item.match || 'Publicação importada';
+        const parsed = parseAparicao(item);
 
         // Verifica se já existe para evitar duplicidade
         const { data: existing } = await supabaseClient
           .from('publicacoes')
           .select('id')
           .eq('user_id', user.id)
-          .eq('conteudo', conteudo)
+          .eq('conteudo', parsed.conteudo)
           .maybeSingle();
 
         if (!existing) {
@@ -531,12 +569,12 @@ serve(async (req) => {
             .from('publicacoes')
             .insert({
               user_id: user.id,
-              data_publicacao: dataPub,
-              conteudo: conteudo,
-              processo_numero: processoNum,
+              data_publicacao: parsed.dataPub,
+              conteudo: parsed.conteudo,
+              processo_numero: parsed.processoNum,
               lido: false,
               tipo: 'Intimação',
-              tribunal: item.tribunal || 'Diário Oficial',
+              tribunal: parsed.tribunal,
             });
           
           if (!insErr) inseridos++;
