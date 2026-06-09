@@ -242,19 +242,45 @@ serve(async (req) => {
         });
       }
 
-      const escavadorUrl = `https://api.escavador.com/api/v2/advogado/processos?oab_numero=${oabNumero}&oab_estado=${oabUf.toUpperCase()}&oab_tipo=ADVOGADO`;
-      
-      const response = await fetch(escavadorUrl, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${escavadorKey}`,
-        },
-      });
+      let allItems: any[] = [];
+      let nextPageUrl: string | null = `https://api.escavador.com/api/v2/advogado/processos?oab_numero=${oabNumero}&oab_estado=${oabUf.toUpperCase()}&oab_tipo=ADVOGADO`;
+      let pagesFetched = 0;
+      const maxPages = 5;
+      let lastStatus = 200;
+      let lastErrorData = null;
 
-      const data = await response.json();
-      return new Response(JSON.stringify(data), {
-        status: response.status,
+      while (nextPageUrl && pagesFetched < maxPages) {
+        const response = await fetch(nextPageUrl, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${escavadorKey}`,
+          },
+        });
+        
+        lastStatus = response.status;
+        if (!response.ok) {
+          lastErrorData = await response.json().catch(() => null);
+          break;
+        }
+
+        const data = await response.json();
+        const items = data.items || [];
+        allItems = [...allItems, ...items];
+        
+        nextPageUrl = data.links?.next || null;
+        pagesFetched++;
+      }
+
+      if (pagesFetched === 0 && lastErrorData) {
+        return new Response(JSON.stringify(lastErrorData), {
+          status: lastStatus,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ items: allItems }), {
+        status: 200,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     }
