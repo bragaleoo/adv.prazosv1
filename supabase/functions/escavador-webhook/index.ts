@@ -244,12 +244,10 @@ serve(async (req) => {
 
       let allItems: any[] = [];
       let nextPageUrl: string | null = `https://api.escavador.com/api/v2/advogado/processos?oab_numero=${oabNumero}&oab_estado=${oabUf.toUpperCase()}&oab_tipo=ADVOGADO`;
-      let pagesFetched = 0;
-      const maxPages = 25;
       let lastStatus = 200;
       let lastErrorData = null;
 
-      while (nextPageUrl && pagesFetched < maxPages) {
+      while (nextPageUrl) {
         const response = await fetch(nextPageUrl, {
           method: 'GET',
           headers: {
@@ -269,10 +267,9 @@ serve(async (req) => {
         allItems = [...allItems, ...items];
         
         nextPageUrl = data.links?.next || null;
-        pagesFetched++;
       }
 
-      if (pagesFetched === 0 && lastErrorData) {
+      if (allItems.length === 0 && lastErrorData) {
         return new Response(JSON.stringify(lastErrorData), {
           status: lastStatus,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
