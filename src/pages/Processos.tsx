@@ -25,6 +25,21 @@ const STATUS_CONFIG = {
   suspenso: { label: 'Suspenso', color: 'text-amber-400', bg: 'bg-amber-500/10', dot: 'bg-amber-400' },
 };
 
+/** Remove tags HTML e decodifica entidades comuns do texto vindo do Escavador */
+function stripHtml(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/<[^>]*>/g, ' ')   // remove tags
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s{2,}/g, ' ')    // colapsa espaços múltiplos
+    .trim();
+}
+
 interface ModalProcessoProps {
   isOpen: boolean;
   onClose: () => void;
@@ -748,7 +763,7 @@ export default function Processos() {
       // Salva andamentos novos no banco
       for (const mov of movimentos) {
         const dataMovimento = new Date(mov.dataHora).toISOString();
-        const novaDesc = mov.nome + (mov.complemento ? ` — ${mov.complemento}` : '');
+        const novaDesc = stripHtml(mov.nome + (mov.complemento ? ` — ${mov.complemento}` : ''));
 
         // Verifica se já existe esse andamento
         const { data: existing } = await supabase

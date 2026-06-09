@@ -12,6 +12,21 @@ import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatarNumeroCNJ } from '../lib/escavador';
 
+/** Remove tags HTML e decodifica entidades comuns */
+function stripHtml(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 const URGENCIA_CONFIG = {
   alta: {
     label: 'Urgente',
@@ -108,7 +123,7 @@ function CardAndamento({ andamento, onMarcarTratado }: {
 
           {/* Descrição do andamento */}
           <p className="text-sm text-slate-200 font-medium leading-snug mb-3">
-            {andamento.descricao}
+            {stripHtml(andamento.descricao)}
           </p>
 
           {/* Sugestão IA */}
