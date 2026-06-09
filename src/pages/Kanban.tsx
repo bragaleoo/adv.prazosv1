@@ -251,7 +251,7 @@ export default function Kanban() {
     setModalAberto(true);
   };
 
-  if (loading) {
+  if (loading && tarefas.length === 0) {
     return (
       <MainLayout title="Kanban" subtitle="Carregando...">
         <div className="flex items-center justify-center h-64">

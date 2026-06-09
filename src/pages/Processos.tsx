@@ -859,7 +859,7 @@ export default function Processos() {
     }
   };
 
-  if (loading) {
+  if (loading && processos.length === 0) {
     return (
       <MainLayout title="Processos" subtitle="Carregando...">
         <div className="flex items-center justify-center h-64">

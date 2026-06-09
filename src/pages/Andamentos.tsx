@@ -337,7 +337,7 @@ export default function Andamentos() {
   const urgentesHoje = naoTratados.filter(a => a.sugestao_ia?.urgencia === 'alta').length;
   const atencaoHoje = naoTratados.filter(a => a.sugestao_ia?.urgencia === 'media').length;
 
-  if (loading) {
+  if (loading && andamentos.length === 0) {
     return (
       <MainLayout title="Andamentos" subtitle="Carregando...">
         <div className="flex items-center justify-center h-64">
